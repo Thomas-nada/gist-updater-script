@@ -22,9 +22,9 @@ CONFIG = {
     "KOIOS_POOL_INFO_BATCH_SIZE": 80,
     "GIST_UPDATE_RETRIES": 3,
     "GIST_UPDATE_RETRY_DELAY": 5, # seconds
-    "OUTPUT_CSV_FULL": "pools_with_drep_and_voting_power.csv",
-    "OUTPUT_CSV_SUMMARY": "voting_power_by_literal.csv",
-    "GIST_FILENAME": "drep-delegation-summary.csv"
+    "OUTPUT_CSV_FULL_DATA": "pools_with_drep_and_voting_power.csv",
+    "OUTPUT_CSV_GOVERNANCE_REPORT": "governance-report.csv",
+    "GIST_FILENAME": "governance-report.csv"
 }
 
 # --- Logging Setup -----------------------------------------------------------
@@ -43,30 +43,33 @@ def ada(lovelace):
     except (ValueError, TypeError):
         return 0.0
 
-def normalize_literal(x):
-    """Normalizes a string for consistent grouping."""
-    if x is None:
-        return None
-    s = str(x).strip().lower()
-    for ch in ["-", " ", ":", "."]:
-        s = s.replace(ch, "_")
-    while "__" in s:
-        s = s.replace("__", "_")
-    return s
-
-def extract_ticker(meta_json):
-    """Safely extracts a pool ticker from metadata JSON."""
+def parse_meta_json(meta_json):
+    """Safely parses metadata string into a dictionary."""
     if not meta_json:
-        return ""
+        return {}
     try:
         if isinstance(meta_json, str):
-            meta_json = json.loads(meta_json)
+            return json.loads(meta_json)
         if isinstance(meta_json, dict):
-            t = meta_json.get("ticker") or meta_json.get("pool_ticker")
-            return str(t) if t else ""
+            return meta_json
     except (json.JSONDecodeError, AttributeError):
         pass
-    return ""
+    return {}
+
+def extract_ticker(parsed_meta):
+    """Safely extracts a pool ticker from parsed metadata."""
+    if not parsed_meta:
+        return ""
+    t = parsed_meta.get("ticker") or parsed_meta.get("pool_ticker")
+    return str(t) if t else ""
+
+def extract_homepage(parsed_meta):
+    """Safely extracts a pool homepage from parsed metadata."""
+    if not parsed_meta:
+        return ""
+    h = parsed_meta.get("homepage") or parsed_meta.get("pool_homepage")
+    return str(h) if h else ""
+
 
 # --- Data Fetching Logic -----------------------------------------------------
 def get_all_pool_ids(blockfrost_key):
@@ -81,7 +84,6 @@ def get_all_pool_ids(blockfrost_key):
         r.raise_for_status()
         koios_ids = [p["pool_id_bech32"] for p in r.json()]
         logging.info(f"Koios returned {len(koios_ids)} pool IDs.")
-        # If Koios returns a capped amount (typically 1000), it's unreliable.
         if len(koios_ids) < 1000:
             return koios_ids
     except requests.RequestException as e:
@@ -138,14 +140,13 @@ def fetch_pool_info_rows(pool_ids):
             
             for p in r.json():
                 vp = p.get("voting_power", 0)
+                meta = parse_meta_json(p.get("meta_json"))
                 rows.append({
-                    "pool_id_bech32": p.get("pool_id_bech32"),
-                    "ticker": extract_ticker(p.get("meta_json")),
-                    "reward_addr": p.get("reward_addr"),
-                    "reward_addr_delegated_drep_raw": p.get("reward_addr_delegated_drep"),
-                    "reward_addr_delegated_drep_norm": normalize_literal(p.get("reward_addr_delegated_drep")),
-                    "voting_power_lovelace": int(vp),
-                    "voting_power_ADA": f"{ada(vp):.6f}",
+                    "pool_id": p.get("pool_id_bech32"),
+                    "ticker": extract_ticker(meta),
+                    "homepage": extract_homepage(meta),
+                    "reward_addr_delegated_drep": p.get("reward_addr_delegated_drep"),
+                    "voting_power_ada": ada(vp),
                 })
             i += len(chunk)
             time.sleep(CONFIG['API_SLEEP_INTERVAL'])
@@ -155,53 +156,35 @@ def fetch_pool_info_rows(pool_ids):
     return rows
 
 # --- Data Processing and Output ----------------------------------------------
-def write_csv_rows(rows, path, fields):
-    """Writes a list of dictionaries to a CSV file."""
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
+def generate_governance_report(rows):
+    """Generates the final governance report CSV."""
+    report_rows = []
+    for row in rows:
+        delegation_status = "Delegated to DRep" if row.get("reward_addr_delegated_drep") else "Not Delegated"
+        report_rows.append({
+            "pool_id": row.get("pool_id"),
+            "ticker": row.get("ticker"),
+            "homepage": row.get("homepage"),
+            "voting_power_ada": f'{row.get("voting_power_ada", 0):.6f}',
+            # The 'status' column from the example cannot be determined with current data.
+            # It would require checking governance proposal votes via different API endpoints.
+            "status": "Unknown", 
+            "delegation_status": delegation_status
+        })
+
+    output_path = CONFIG['OUTPUT_CSV_GOVERNANCE_REPORT']
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        fieldnames = ["pool_id", "ticker", "homepage", "voting_power_ada", "status", "delegation_status"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(rows)
-    logging.info(f"Wrote {len(rows)} rows to {path}")
-
-def summarize_and_write(rows):
-    """Summarizes voting power by DRep and writes to CSV."""
-    groups = collections.defaultdict(lambda: {"count": 0, "lovelace": 0})
-    total_lovelace = sum(int(r["voting_power_lovelace"]) for r in rows)
-
-    for r in rows:
-        lit = r["reward_addr_delegated_drep_norm"]
-        ll = int(r["voting_power_lovelace"])
-        groups[lit]["count"] += 1
-        groups[lit]["lovelace"] += ll
-    
-    summary_path = CONFIG['OUTPUT_CSV_SUMMARY']
-    with open(summary_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["normalized_literal", "pools", "total_lovelace", "total_ADA", "share_%"])
-        for lit, agg in sorted(groups.items(), key=lambda kv: (-kv[1]["lovelace"], str(kv[0]))):
-            share = (agg["lovelace"] / total_lovelace * 100.0) if total_lovelace else 0.0
-            writer.writerow([
-                lit if lit is not None else "",
-                agg["count"],
-                agg["lovelace"],
-                f"{ada(agg['lovelace']):.6f}",
-                f"{share:.4f}"
-            ])
-    logging.info(f"Wrote summary to {summary_path}")
-    
-    # Also log the high-level summary to the console
-    abstain_total = groups.get('drep_always_abstain', {}).get('lovelace', 0)
-    noconf_total = groups.get('drep_always_no_confidence', {}).get('lovelace', 0)
-    logging.info("--- Voting Power Summary ---")
-    logging.info(f"Always Abstain Total: {ada(abstain_total):,.6f} ADA")
-    logging.info(f"Always No-Confidence Total: {ada(noconf_total):,.6f} ADA")
-    logging.info(f"Overall Voting Power Seen: {ada(total_lovelace):,.6f} ADA")
+        writer.writerows(report_rows)
+    logging.info(f"Wrote {len(report_rows)} rows to {output_path}")
 
 
 # --- Gist Publishing Logic ---------------------------------------------------
 def update_github_gist_with_retries():
     """
-    Updates a GitHub Gist with the generated summary CSV, with retries on failure.
+    Updates a GitHub Gist with the generated governance report, with retries on failure.
     """
     logging.info("Preparing to update GitHub Gist...")
     gist_id = os.getenv('GIST_ID')
@@ -211,11 +194,12 @@ def update_github_gist_with_retries():
         logging.error("GIST_ID or GITHUB_TOKEN environment variables not found. Skipping Gist update.")
         return
 
+    source_file = CONFIG['OUTPUT_CSV_GOVERNANCE_REPORT']
     try:
-        with open(CONFIG['OUTPUT_CSV_SUMMARY'], 'r', encoding='utf-8') as f:
+        with open(source_file, 'r', encoding='utf-8') as f:
             csv_content = f.read()
     except FileNotFoundError:
-        logging.error(f"Source file {CONFIG['OUTPUT_CSV_SUMMARY']} not found for Gist update.")
+        logging.error(f"Source file {source_file} not found for Gist update.")
         return
 
     headers = {
@@ -223,7 +207,7 @@ def update_github_gist_with_retries():
         'Accept': 'application/vnd.github.v3+json',
     }
     data = {
-        'description': 'Cardano DRep Delegation Summary (Pool Reward Accounts)',
+        'description': 'Cardano Pool Governance Report',
         'files': {
             CONFIG['GIST_FILENAME']: {'content': csv_content}
         }
@@ -268,17 +252,8 @@ def main():
         logging.error("Failed to fetch detailed pool info. Exiting.")
         return
 
-    # 2. Process and Write Local Files
-    write_csv_rows(
-        rows,
-        CONFIG['OUTPUT_CSV_FULL'],
-        [
-            "pool_id_bech32", "ticker", "reward_addr",
-            "reward_addr_delegated_drep_raw", "reward_addr_delegated_drep_norm",
-            "voting_power_lovelace", "voting_power_ADA"
-        ]
-    )
-    summarize_and_write(rows)
+    # 2. Process and Write Local Report File
+    generate_governance_report(rows)
 
     # 3. Publish to Gist
     update_github_gist_with_retries()
