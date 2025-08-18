@@ -211,6 +211,63 @@ def summarize(rows):
     print(f"Always No-Confidence total: {noconf_total} lovelace  ({ada(noconf_total):.6f} ADA)")
     print(f"Overall voting power seen: {total_lovelace} lovelace  ({ada(total_lovelace):.6f} ADA)")
 
+# ---------- Gist update function [NEW] ----------
+def update_github_gist():
+    print("\n-----------------------------------------", file=sys.stderr)
+    print("Attempting to update GitHub Gist...", file=sys.stderr)
+
+    gist_id = os.getenv('GIST_ID')
+    github_token = os.getenv('GITHUB_TOKEN')
+
+    if not gist_id or not github_token:
+        print("Error: GIST_ID or GITHUB_TOKEN environment variables not found!", file=sys.stderr)
+        print("Skipping Gist update.", file=sys.stderr)
+        return
+
+    print(f"Found Gist ID starting with: {gist_id[:4]}...", file=sys.stderr)
+    
+    source_filename = 'voting_power_by_literal.csv'
+    gist_filename = 'drep-delegation-summary.csv'
+
+    try:
+        with open(source_filename, 'r', encoding='utf-8') as f:
+            csv_content = f.read()
+    except FileNotFoundError:
+        print(f"Error: Source file '{source_filename}' not found!", file=sys.stderr)
+        return
+    except Exception as e:
+        print(f"Error reading file '{source_filename}': {e}", file=sys.stderr)
+        return
+
+    headers = {
+        'Authorization': f'token {github_token}',
+        'Accept': 'application/vnd.github.v3+json',
+    }
+    
+    data = {
+        'description': 'Cardano DRep Delegation Summary (Pool Reward Accounts)',
+        'files': {
+            gist_filename: {
+                'content': csv_content
+            }
+        }
+    }
+
+    try:
+        print(f"Sending update request for Gist {gist_id}...", file=sys.stderr)
+        response = requests.patch(f'https://api.github.com/gists/{gist_id}', headers=headers, data=json.dumps(data), timeout=TIMEOUT_POST)
+
+        print(f"GitHub API Response Status Code: {response.status_code}", file=sys.stderr)
+        if response.status_code == 200:
+            print("✅ Gist updated successfully!", file=sys.stderr)
+            print(f"Gist URL: {response.json()['html_url']}", file=sys.stderr)
+        else:
+            print("❌ Error updating Gist!", file=sys.stderr)
+            print(f"Response Body: {response.text}", file=sys.stderr)
+            
+    except requests.exceptions.RequestException as e:
+        print(f"An unexpected network error occurred: {e}", file=sys.stderr)
+
 def main():
     ap = argparse.ArgumentParser(description="Dump all pools with DRep delegation, voting power, and ticker; tally by literal.")
     ap.add_argument("--blockfrost-key", default=os.getenv("BLOCKFROST_PROJECT_ID"),
@@ -242,6 +299,9 @@ def main():
 
     summarize(rows)
     print("Wrote voting_power_by_literal.csv", file=sys.stderr)
+    
+    # Call the new function to update the Gist
+    update_github_gist()
 
 if __name__ == "__main__":
     main()
