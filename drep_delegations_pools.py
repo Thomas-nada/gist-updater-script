@@ -22,7 +22,6 @@ CONFIG = {
     "KOIOS_POOL_INFO_BATCH_SIZE": 80,
     "GIST_UPDATE_RETRIES": 3,
     "GIST_UPDATE_RETRY_DELAY": 5, # seconds
-    "OUTPUT_CSV_FULL_DATA": "pools_with_drep_and_voting_power.csv",
     "OUTPUT_CSV_GOVERNANCE_REPORT": "governance-report.csv",
     "GIST_FILENAME": "governance-report.csv"
 }
@@ -160,7 +159,8 @@ def generate_governance_report(rows):
     """Generates the final governance report CSV."""
     report_rows = []
     for row in rows:
-        delegation_status = "Delegated to DRep" if row.get("reward_addr_delegated_drep") else "Not Delegated"
+        # Set the 'vote' column based on delegation status, matching the example CSV
+        vote_status = "Delegated to DRep" if row.get("reward_addr_delegated_drep") else "Not Delegated"
         report_rows.append({
             "pool_id": row.get("pool_id"),
             "ticker": row.get("ticker"),
@@ -169,12 +169,13 @@ def generate_governance_report(rows):
             # The 'status' column from the example cannot be determined with current data.
             # It would require checking governance proposal votes via different API endpoints.
             "status": "Unknown", 
-            "delegation_status": delegation_status
+            "vote": vote_status
         })
 
     output_path = CONFIG['OUTPUT_CSV_GOVERNANCE_REPORT']
     with open(output_path, "w", newline="", encoding="utf-8") as f:
-        fieldnames = ["pool_id", "ticker", "homepage", "voting_power_ada", "status", "delegation_status"]
+        # Use the exact fieldnames from the example CSV
+        fieldnames = ["pool_id", "ticker", "homepage", "voting_power_ada", "status", "vote"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(report_rows)
