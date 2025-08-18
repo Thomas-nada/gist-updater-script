@@ -159,15 +159,25 @@ def generate_governance_report(rows):
     """Generates the final governance report CSV."""
     report_rows = []
     for row in rows:
-        # Set the 'vote' column based on delegation status, matching the example CSV
-        vote_status = "Delegated to DRep" if row.get("reward_addr_delegated_drep") else "Not Delegated"
+        drep_delegation = row.get("reward_addr_delegated_drep")
+        
+        vote_status = "Not Delegated" # Default value
+        if drep_delegation:
+            # Check for the specific, special DRep values
+            if "always_abstain" in drep_delegation:
+                vote_status = "Always Abstain"
+            elif "no_confidence" in drep_delegation:
+                vote_status = "Always No Confidence"
+            else:
+                # If it's delegated, but not to the special DReps, label as 'Other'.
+                vote_status = "Other"
+
         report_rows.append({
             "pool_id": row.get("pool_id"),
             "ticker": row.get("ticker"),
             "homepage": row.get("homepage"),
             "voting_power_ada": f'{row.get("voting_power_ada", 0):.6f}',
             # The 'status' column from the example cannot be determined with current data.
-            # It would require checking governance proposal votes via different API endpoints.
             "status": "Unknown", 
             "vote": vote_status
         })
