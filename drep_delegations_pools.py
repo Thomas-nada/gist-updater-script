@@ -1,26 +1,50 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os, sys, time, csv, argparse, collections, requests, json
+import os
+import sys
+import time
+import csv
+import argparse
+import collections
+import requests
+import json
+import logging
 
-KOIOS_BASE = os.getenv("KOIOS_BASE", "https://api.koios.rest/api/v1")
-BF_BASE = os.getenv("BLOCKFROST_BASE", "https://cardano-mainnet.blockfrost.io/api/v0")
+# --- Configuration -----------------------------------------------------------
+# Centralized configuration for easy management of script parameters.
+CONFIG = {
+    "KOIOS_BASE_URL": os.getenv("KOIOS_BASE", "https://api.koios.rest/api/v1"),
+    "BLOCKFROST_BASE_URL": os.getenv("BLOCKFROST_BASE", "https://cardano-mainnet.blockfrost.io/api/v0"),
+    "HTTP_TIMEOUT_GET": 60,
+    "HTTP_TIMEOUT_POST": 120,
+    "API_SLEEP_INTERVAL": 0.15,
+    "KOIOS_POOL_INFO_BATCH_SIZE": 80,
+    "GIST_UPDATE_RETRIES": 3,
+    "GIST_UPDATE_RETRY_DELAY": 5, # seconds
+    "OUTPUT_CSV_FULL": "pools_with_drep_and_voting_power.csv",
+    "OUTPUT_CSV_SUMMARY": "voting_power_by_literal.csv",
+    "GIST_FILENAME": "drep-delegation-summary.csv"
+}
 
-HEADERS_JSON = {"accept": "application/json", "content-type": "application/json"}
-TIMEOUT_GET  = 60
-TIMEOUT_POST = 120
-SLEEP        = 0.15
+# --- Logging Setup -----------------------------------------------------------
+# Use the standard logging module for better output management.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
 
-POOL_INFO_BATCH = 80  # auto-reduces on 413
-
-# ---------- helpers ----------
+# --- Helper Functions --------------------------------------------------------
 def ada(lovelace):
+    """Converts lovelace to ADA."""
     try:
         return float(int(lovelace)) / 1_000_000.0
-    except Exception:
+    except (ValueError, TypeError):
         return 0.0
 
 def normalize_literal(x):
+    """Normalizes a string for consistent grouping."""
     if x is None:
         return None
     s = str(x).strip().lower()
@@ -31,277 +55,233 @@ def normalize_literal(x):
     return s
 
 def extract_ticker(meta_json):
-    """
-    Try to pull the CIP-6 ticker from pool_info.meta_json.
-    Handles dict, JSON string, or None. Returns '' if not found.
-    """
+    """Safely extracts a pool ticker from metadata JSON."""
     if not meta_json:
         return ""
     try:
-        # If it's a string, parse to JSON
         if isinstance(meta_json, str):
             meta_json = json.loads(meta_json)
         if isinstance(meta_json, dict):
             t = meta_json.get("ticker") or meta_json.get("pool_ticker")
             return str(t) if t else ""
-    except Exception:
+    except (json.JSONDecodeError, AttributeError):
         pass
     return ""
 
-TARGETS = {
-    "abstain",
-    "always_abstain",
-    "no_confidence",
-    "always_no_confidence",
-    "drep_always_abstain",
-    "drep_always_no_confidence",
-}
-
-# ---------- pool id enumeration ----------
-def koios_pool_list_try_post_pagination():
-    sess = requests.Session()
-    sess.headers.update(HEADERS_JSON)
-    all_ids = []
-    offset = 0
-    page_size = 1000
-    while True:
-        r = sess.post(f"{KOIOS_BASE}/pool_list",
-                      json={"_offset": offset, "_count": page_size},
-                      timeout=TIMEOUT_POST)
-        if r.status_code == 404:
-            return None
-        r.raise_for_status()
-        page = r.json()
-        if not page:
-            break
-        ids = [p["pool_id_bech32"] for p in page]
-        all_ids.extend(ids)
-        sys.stderr.write(f"Koios POST /pool_list: {len(ids)} (total {len(all_ids)}), offset {offset}\n")
-        offset += len(ids)
-        time.sleep(SLEEP)
-        if len(ids) < page_size:
-            break
-        if offset >= 1000 and len(all_ids) == 1000:
-            return None
-    return all_ids
-
-def koios_pool_list_try_get_no_params():
-    r = requests.get(f"{KOIOS_BASE}/pool_list", headers=HEADERS_JSON, timeout=TIMEOUT_GET)
-    r.raise_for_status()
-    page = r.json()
-    ids = [p["pool_id_bech32"] for p in page]
-    sys.stderr.write(f"Koios GET(no params) /pool_list: {len(ids)} (likely capped)\n")
-    return ids
-
-def blockfrost_pool_ids(project_id):
-    sess = requests.Session()
-    sess.headers.update({"project_id": project_id})
-    all_ids, page = [], 1
-    while True:
-        url = f"{BF_BASE}/pools?page={page}"
-        r = sess.get(url, timeout=TIMEOUT_GET)
-        if r.status_code == 429:
-            time.sleep(2)
-            continue
-        r.raise_for_status()
-        arr = r.json()
-        if not arr:
-            break
-        ids = [p for p in arr]
-        all_ids.extend(ids)
-        sys.stderr.write(f"Blockfrost /pools page {page}: {len(ids)} (total {len(all_ids)})\n")
-        page += 1
-        time.sleep(SLEEP)
-    return all_ids
-
-def get_all_pool_ids(blockfrost_key=None):
-    ids = koios_pool_list_try_post_pagination()
-    if ids and len(ids) > 1000:
-        return ids
+# --- Data Fetching Logic -----------------------------------------------------
+def get_all_pool_ids(blockfrost_key):
+    """
+    Enumerates all pool IDs, preferring Koios but falling back to Blockfrost
+    if Koios results appear capped or incomplete.
+    """
+    koios_url = f"{CONFIG['KOIOS_BASE_URL']}/pool_list"
     try:
-        ids_get = koios_pool_list_try_get_no_params()
-    except Exception:
-        ids_get = []
-    if (ids and len(ids) == 1000) or len(ids_get) == 1000 or not ids:
-        if not blockfrost_key:
-            sys.exit("Need all pool IDs. Provide --blockfrost-key or export BLOCKFROST_PROJECT_ID.")
-        sys.stderr.write("Using Blockfrost to enumerate all pools…\n")
-        return blockfrost_pool_ids(blockfrost_key)
-    return ids_get or ids
-
-# ---------- Koios pool_info ----------
-def fetch_pool_info_rows(pool_ids):
-    sess = requests.Session()
-    sess.headers.update(HEADERS_JSON)
-    rows, i, batch = [], 0, POOL_INFO_BATCH
-    while i < len(pool_ids):
-        chunk = pool_ids[i:i+batch]
-        r = sess.post(f"{KOIOS_BASE}/pool_info",
-                      json={"_pool_bech32_ids": chunk},
-                      timeout=TIMEOUT_POST)
-        if r.status_code == 413:
-            if batch <= 10:
-                r.raise_for_status()
-            batch = max(10, batch // 2)
-            sys.stderr.write(f"413: reducing /pool_info batch to {batch} and retrying\n")
-            continue
-        if r.status_code == 429:
-            wait = int(r.headers.get("X-RateLimit-Reset", "2"))
-            sys.stderr.write(f"429: sleeping {wait}s then retrying\n")
-            time.sleep(wait)
-            continue
+        logging.info("Attempting to fetch all pool IDs from Koios...")
+        r = requests.get(koios_url, timeout=CONFIG['HTTP_TIMEOUT_GET'])
         r.raise_for_status()
-        data = r.json()
-        for p in data:
-            vp = p.get("voting_power")
-            try:
-                vp_int = int(vp) if vp is not None else 0
-            except Exception:
-                try:
-                    vp_int = int(float(vp))
-                except Exception:
-                    vp_int = 0
-            lit_raw = p.get("reward_addr_delegated_drep")
-            lit_norm = normalize_literal(lit_raw)
-            ticker = extract_ticker(p.get("meta_json"))
-            rows.append({
-                "pool_id_bech32": p.get("pool_id_bech32"),
-                "ticker": ticker,
-                "reward_addr": p.get("reward_addr"),
-                "reward_addr_delegated_drep_raw": lit_raw,
-                "reward_addr_delegated_drep_norm": lit_norm,
-                "voting_power_lovelace": vp_int,
-                "voting_power_ADA": f"{ada(vp_int):.6f}",
-            })
-        i += len(chunk)
-        time.sleep(SLEEP)
+        koios_ids = [p["pool_id_bech32"] for p in r.json()]
+        logging.info(f"Koios returned {len(koios_ids)} pool IDs.")
+        # If Koios returns a capped amount (typically 1000), it's unreliable.
+        if len(koios_ids) < 1000:
+            return koios_ids
+    except requests.RequestException as e:
+        logging.warning(f"Koios pool list fetch failed: {e}. Falling back to Blockfrost.")
+
+    if not blockfrost_key:
+        logging.error("Blockfrost key is required as a fallback but was not provided.")
+        sys.exit(1)
+
+    logging.info("Using Blockfrost to enumerate all pools...")
+    all_ids, page = [], 1
+    sess = requests.Session()
+    sess.headers.update({"project_id": blockfrost_key})
+    while True:
+        try:
+            url = f"{CONFIG['BLOCKFROST_BASE_URL']}/pools?page={page}"
+            r = sess.get(url, timeout=CONFIG['HTTP_TIMEOUT_GET'])
+            if r.status_code == 429: # Rate limit
+                time.sleep(2)
+                continue
+            r.raise_for_status()
+            page_ids = r.json()
+            if not page_ids:
+                break
+            all_ids.extend(page_ids)
+            logging.info(f"Blockfrost /pools page {page}: Got {len(page_ids)} (total {len(all_ids)})")
+            page += 1
+            time.sleep(CONFIG['API_SLEEP_INTERVAL'])
+        except requests.RequestException as e:
+            logging.error(f"Blockfrost request failed on page {page}: {e}")
+            break
+    return all_ids
+
+
+def fetch_pool_info_rows(pool_ids):
+    """Fetches detailed pool information in batches from Koios."""
+    logging.info(f"Fetching detailed info for {len(pool_ids)} pools from Koios...")
+    sess = requests.Session()
+    rows, i = [], 0
+    batch_size = CONFIG['KOIOS_POOL_INFO_BATCH_SIZE']
+    while i < len(pool_ids):
+        chunk = pool_ids[i:i + batch_size]
+        try:
+            r = sess.post(
+                f"{CONFIG['KOIOS_BASE_URL']}/pool_info",
+                json={"_pool_bech32_ids": chunk},
+                timeout=CONFIG['HTTP_TIMEOUT_POST']
+            )
+            if r.status_code == 413: # Payload too large
+                batch_size = max(10, batch_size // 2)
+                logging.warning(f"413 error: Reducing batch size to {batch_size} and retrying.")
+                continue
+            r.raise_for_status()
+            
+            for p in r.json():
+                vp = p.get("voting_power", 0)
+                rows.append({
+                    "pool_id_bech32": p.get("pool_id_bech32"),
+                    "ticker": extract_ticker(p.get("meta_json")),
+                    "reward_addr": p.get("reward_addr"),
+                    "reward_addr_delegated_drep_raw": p.get("reward_addr_delegated_drep"),
+                    "reward_addr_delegated_drep_norm": normalize_literal(p.get("reward_addr_delegated_drep")),
+                    "voting_power_lovelace": int(vp),
+                    "voting_power_ADA": f"{ada(vp):.6f}",
+                })
+            i += len(chunk)
+            time.sleep(CONFIG['API_SLEEP_INTERVAL'])
+        except requests.RequestException as e:
+            logging.error(f"Koios /pool_info request failed: {e}. Retrying in 5s...")
+            time.sleep(5)
     return rows
 
-# ---------- write + summarize ----------
+# --- Data Processing and Output ----------------------------------------------
 def write_csv_rows(rows, path, fields):
+    """Writes a list of dictionaries to a CSV file."""
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader()
-        w.writerows(rows)
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    logging.info(f"Wrote {len(rows)} rows to {path}")
 
-def summarize(rows):
-    groups = collections.defaultdict(lambda: {"count":0, "lovelace":0})
-    total_lovelace = 0
+def summarize_and_write(rows):
+    """Summarizes voting power by DRep and writes to CSV."""
+    groups = collections.defaultdict(lambda: {"count": 0, "lovelace": 0})
+    total_lovelace = sum(int(r["voting_power_lovelace"]) for r in rows)
+
     for r in rows:
         lit = r["reward_addr_delegated_drep_norm"]
         ll = int(r["voting_power_lovelace"])
         groups[lit]["count"] += 1
         groups[lit]["lovelace"] += ll
-        total_lovelace += ll
-
-    with open("voting_power_by_literal.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["normalized_literal","pools","total_lovelace","total_ADA","share_%"])
+    
+    summary_path = CONFIG['OUTPUT_CSV_SUMMARY']
+    with open(summary_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["normalized_literal", "pools", "total_lovelace", "total_ADA", "share_%"])
         for lit, agg in sorted(groups.items(), key=lambda kv: (-kv[1]["lovelace"], str(kv[0]))):
-            ada_sum = ada(agg["lovelace"])
             share = (agg["lovelace"] / total_lovelace * 100.0) if total_lovelace else 0.0
-            w.writerow([lit if lit is not None else "", agg["count"], agg["lovelace"], f"{ada_sum:.6f}", f"{share:.4f}"])
+            writer.writerow([
+                lit if lit is not None else "",
+                agg["count"],
+                agg["lovelace"],
+                f"{ada(agg['lovelace']):.6f}",
+                f"{share:.4f}"
+            ])
+    logging.info(f"Wrote summary to {summary_path}")
+    
+    # Also log the high-level summary to the console
+    abstain_total = groups.get('drep_always_abstain', {}).get('lovelace', 0)
+    noconf_total = groups.get('drep_always_no_confidence', {}).get('lovelace', 0)
+    logging.info("--- Voting Power Summary ---")
+    logging.info(f"Always Abstain Total: {ada(abstain_total):,.6f} ADA")
+    logging.info(f"Always No-Confidence Total: {ada(noconf_total):,.6f} ADA")
+    logging.info(f"Overall Voting Power Seen: {ada(total_lovelace):,.6f} ADA")
 
-    norm_targets = {normalize_literal(t) for t in TARGETS}
-    abstain_total = sum(groups.get(k, {}).get("lovelace", 0) for k in norm_targets if "abstain" in (k or ""))
-    noconf_total  = sum(groups.get(k, {}).get("lovelace", 0) for k in norm_targets if "no_confidence" in (k or ""))
 
-    print("\n=== Voting power summary (targets) ===")
-    print(f"Always Abstain total: {abstain_total} lovelace  ({ada(abstain_total):.6f} ADA)")
-    print(f"Always No-Confidence total: {noconf_total} lovelace  ({ada(noconf_total):.6f} ADA)")
-    print(f"Overall voting power seen: {total_lovelace} lovelace  ({ada(total_lovelace):.6f} ADA)")
-
-# ---------- Gist update function [NEW] ----------
-def update_github_gist():
-    print("\n-----------------------------------------", file=sys.stderr)
-    print("Attempting to update GitHub Gist...", file=sys.stderr)
-
+# --- Gist Publishing Logic ---------------------------------------------------
+def update_github_gist_with_retries():
+    """
+    Updates a GitHub Gist with the generated summary CSV, with retries on failure.
+    """
+    logging.info("Preparing to update GitHub Gist...")
     gist_id = os.getenv('GIST_ID')
     github_token = os.getenv('GITHUB_TOKEN')
 
     if not gist_id or not github_token:
-        print("Error: GIST_ID or GITHUB_TOKEN environment variables not found!", file=sys.stderr)
-        print("Skipping Gist update.", file=sys.stderr)
+        logging.error("GIST_ID or GITHUB_TOKEN environment variables not found. Skipping Gist update.")
         return
-
-    print(f"Found Gist ID starting with: {gist_id[:4]}...", file=sys.stderr)
-    
-    source_filename = 'voting_power_by_literal.csv'
-    gist_filename = 'drep-delegation-summary.csv'
 
     try:
-        with open(source_filename, 'r', encoding='utf-8') as f:
+        with open(CONFIG['OUTPUT_CSV_SUMMARY'], 'r', encoding='utf-8') as f:
             csv_content = f.read()
     except FileNotFoundError:
-        print(f"Error: Source file '{source_filename}' not found!", file=sys.stderr)
-        return
-    except Exception as e:
-        print(f"Error reading file '{source_filename}': {e}", file=sys.stderr)
+        logging.error(f"Source file {CONFIG['OUTPUT_CSV_SUMMARY']} not found for Gist update.")
         return
 
     headers = {
         'Authorization': f'token {github_token}',
         'Accept': 'application/vnd.github.v3+json',
     }
-    
     data = {
         'description': 'Cardano DRep Delegation Summary (Pool Reward Accounts)',
         'files': {
-            gist_filename: {
-                'content': csv_content
-            }
+            CONFIG['GIST_FILENAME']: {'content': csv_content}
         }
     }
+    url = f'https://api.github.com/gists/{gist_id}'
 
-    try:
-        print(f"Sending update request for Gist {gist_id}...", file=sys.stderr)
-        response = requests.patch(f'https://api.github.com/gists/{gist_id}', headers=headers, data=json.dumps(data), timeout=TIMEOUT_POST)
-
-        print(f"GitHub API Response Status Code: {response.status_code}", file=sys.stderr)
-        if response.status_code == 200:
-            print("✅ Gist updated successfully!", file=sys.stderr)
-            print(f"Gist URL: {response.json()['html_url']}", file=sys.stderr)
-        else:
-            print("❌ Error updating Gist!", file=sys.stderr)
-            print(f"Response Body: {response.text}", file=sys.stderr)
+    for attempt in range(CONFIG['GIST_UPDATE_RETRIES']):
+        logging.info(f"Attempting to update Gist (try {attempt + 1}/{CONFIG['GIST_UPDATE_RETRIES']})...")
+        try:
+            response = requests.patch(url, headers=headers, data=json.dumps(data), timeout=CONFIG['HTTP_TIMEOUT_POST'])
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
             
-    except requests.exceptions.RequestException as e:
-        print(f"An unexpected network error occurred: {e}", file=sys.stderr)
+            logging.info(f"✅ Gist updated successfully! URL: {response.json()['html_url']}")
+            return # Success, exit the function
+        except requests.RequestException as e:
+            logging.warning(f"Gist update attempt {attempt + 1} failed: {e}")
+            if attempt < CONFIG['GIST_UPDATE_RETRIES'] - 1:
+                logging.info(f"Retrying in {CONFIG['GIST_UPDATE_RETRY_DELAY']} seconds...")
+                time.sleep(CONFIG['GIST_UPDATE_RETRY_DELAY'])
+            else:
+                logging.error("All Gist update attempts failed.")
 
+# --- Main Execution ----------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description="Dump all pools with DRep delegation, voting power, and ticker; tally by literal.")
-    ap.add_argument("--blockfrost-key", default=os.getenv("BLOCKFROST_PROJECT_ID"),
-                    help="Blockfrost project ID (env BLOCKFROST_PROJECT_ID if not passed)")
-    args = ap.parse_args()
+    """Main script execution flow."""
+    parser = argparse.ArgumentParser(description="Fetch Cardano pool DRep delegations and update a GitHub Gist.")
+    parser.add_argument(
+        "--blockfrost-key",
+        default=os.getenv("BLOCKFROST_PROJECT_ID"),
+        help="Blockfrost project ID (or set BLOCKFROST_PROJECT_ID env var)"
+    )
+    args = parser.parse_args()
 
-    print("Enumerating pool IDs…", file=sys.stderr)
+    # 1. Fetch Data
     pool_ids = get_all_pool_ids(args.blockfrost_key)
-    print(f"Total pool IDs discovered: {len(pool_ids)}", file=sys.stderr)
-
-    print("Fetching Koios /pool_info in batches…", file=sys.stderr)
+    if not pool_ids:
+        logging.error("No pool IDs were found. Exiting.")
+        return
+    
     rows = fetch_pool_info_rows(pool_ids)
+    if not rows:
+        logging.error("Failed to fetch detailed pool info. Exiting.")
+        return
 
-    out = "pools_with_drep_and_voting_power.csv"
+    # 2. Process and Write Local Files
     write_csv_rows(
         rows,
-        out,
+        CONFIG['OUTPUT_CSV_FULL'],
         [
-            "pool_id_bech32",
-            "ticker",
-            "reward_addr",
-            "reward_addr_delegated_drep_raw",
-            "reward_addr_delegated_drep_norm",
-            "voting_power_lovelace",
-            "voting_power_ADA",
-        ],
+            "pool_id_bech32", "ticker", "reward_addr",
+            "reward_addr_delegated_drep_raw", "reward_addr_delegated_drep_norm",
+            "voting_power_lovelace", "voting_power_ADA"
+        ]
     )
-    print(f"Wrote {len(rows)} rows to {out}", file=sys.stderr)
+    summarize_and_write(rows)
 
-    summarize(rows)
-    print("Wrote voting_power_by_literal.csv", file=sys.stderr)
-    
-    # Call the new function to update the Gist
-    update_github_gist()
+    # 3. Publish to Gist
+    update_github_gist_with_retries()
 
 if __name__ == "__main__":
     main()
