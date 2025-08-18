@@ -1,0 +1,40 @@
+name: Update Cardano DRep Gist
+
+# This controls when the action will run.
+on:
+  # This runs the workflow every 30 minutes.
+  # You can customize the schedule using cron syntax.
+  schedule:
+    - cron: '*/30 * * * *'
+
+  # This allows you to run the workflow manually from the "Actions" tab.
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checks out your repository code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Sets up the specified version of Python
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      # 3. Installs the 'requests' library your script needs
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # 4. Runs your Python script
+      - name: Run Python script to update Gist
+        env:
+          BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GITHUB_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
+        run: python drep_delegations_pools.py # <-- IMPORTANT: Change this to your script's filename!
