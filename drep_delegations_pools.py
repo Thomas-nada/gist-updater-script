@@ -257,6 +257,11 @@ def main():
 
     # 3. Publish to Gist
     update_github_gist_with_retries()
+    
+    # 4. Add a small delay to ensure logs are flushed before the action runner exits
+    logging.info("Waiting a few seconds for logs to flush...")
+    time.sleep(10)
+    logging.info("Script finished.")
 
 if __name__ == "__main__":
     main()
