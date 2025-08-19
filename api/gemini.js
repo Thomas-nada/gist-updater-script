@@ -1,5 +1,5 @@
 // This is a serverless function, designed to run on platforms like Vercel or Netlify.
-// It acts as a secure proxy to the Gemini API.
+// It acts as a secure proxy to the Gemini API. This is a comment
 
 // The handler function that receives requests.
 export default async function handler(request, response) {
