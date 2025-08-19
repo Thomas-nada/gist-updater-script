@@ -32,9 +32,13 @@ logging.basicConfig(
 
 # --- Helper Functions --------------------------------------------------------
 def api_get_request(url):
-    """A reusable function for making GET requests with error handling."""
+    """A reusable function for making GET requests with a browser-like User-Agent."""
+    # Add a User-Agent header to prevent 403 Forbidden errors from the API.
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
     try:
-        response = requests.get(url, timeout=CONFIG["HTTP_TIMEOUT"])
+        response = requests.get(url, headers=headers, timeout=CONFIG["HTTP_TIMEOUT"])
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
