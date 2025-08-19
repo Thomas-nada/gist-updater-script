@@ -37,11 +37,10 @@ jobs:
       # Step 4: Runs the Python script that tracks SPO votes.
       - name: Run Python script to track SPO votes
         env:
-          # This securely passes your repository secrets to the script as environment variables.
-          # It uses the NEW secret for the new Gist.
+        env:
           GIST_ID: ${{ secrets.SPO_VOTE_GIST_ID }}
-          # The same GitHub token can be reused as it has the necessary 'gist' permission.
           GITHUB_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
+          MAESTRO_API_KEY: ${{ secrets.MAESTRO_API_KEY }} 
         # This is the command that executes your new script.
         run: python spo_vote_tracker.py
 
