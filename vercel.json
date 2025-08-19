@@ -1,4 +1,12 @@
 {
+  "functions": {
+    "api/data.js": {
+      "memory": 1024
+    },
+    "api/gemini.js": {
+      "memory": 1024
+    }
+  },
   "headers": [
     {
       "source": "/api/(.*)",
