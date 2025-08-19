@@ -10,10 +10,10 @@ import json
 import logging
 
 # --- Configuration -----------------------------------------------------------
-# This script now uses the Maestro API for governance data, which requires an API key.
+# This script now uses the Blockfrost and Koios APIs.
 CONFIG = {
     "KOIOS_BASE_URL": "https://api.koios.rest/api/v1",
-    "MAESTRO_BASE_URL": "https://mainnet.gomaestro-api.org/v1",
+    "BLOCKFROST_BASE_URL": "https://cardano-mainnet.blockfrost.io/api/v0",
     "HTTP_TIMEOUT": 120,
     "API_SLEEP_INTERVAL": 0.1,
     "KOIOS_POOL_INFO_BATCH_SIZE": 80,
@@ -96,33 +96,35 @@ def fetch_all_pool_details():
     logging.info(f"Successfully fetched details for {len(all_pools)} pools.")
     return all_pools
 
-def fetch_active_governance_actions(maestro_api_key):
-    """Fetches active governance proposals from Maestro."""
-    logging.info("Fetching active governance actions from Maestro...")
-    headers = {'api-key': maestro_api_key}
-    data = api_get_request(f"{CONFIG['MAESTRO_BASE_URL']}/governance/proposals", headers=headers)
+def fetch_active_governance_actions(blockfrost_key):
+    """Fetches active governance proposals from Blockfrost."""
+    logging.info("Fetching active governance actions from Blockfrost...")
+    headers = {'project_id': blockfrost_key}
+    # Blockfrost's endpoint for proposals is under /gov/proposals
+    data = api_get_request(f"{CONFIG['BLOCKFROST_BASE_URL']}/gov/proposals", headers=headers)
     if data:
-        active_proposals = [p for p in data if p.get('state') == 'voting']
-        logging.info(f"Found {len(active_proposals)} active governance actions.")
-        return active_proposals
-    logging.warning("Could not find any active governance actions.")
+        # Blockfrost doesn't have a 'state' field, so we assume all returned are relevant
+        # This endpoint is new and may evolve. For now, we process all results.
+        logging.info(f"Found {len(data)} governance actions.")
+        return data
+    logging.warning("Could not find any governance actions.")
     return []
 
-def fetch_spo_votes_for_action(action_tx_hash, action_index, maestro_api_key):
-    """Fetches SPO votes for a specific governance action from Maestro."""
+def fetch_spo_votes_for_action(action_tx_hash, blockfrost_key):
+    """Fetches SPO votes for a specific governance action from Blockfrost."""
     logging.info(f"Fetching SPO votes for action tx {action_tx_hash[:12]}...")
-    headers = {'api-key': maestro_api_key}
-    url = f"{CONFIG['MAESTRO_BASE_URL']}/governance/proposals/{action_tx_hash}/{action_index}/votes"
+    headers = {'project_id': blockfrost_key}
+    url = f"{CONFIG['BLOCKFROST_BASE_URL']}/gov/proposals/{action_tx_hash}/votes"
     data = api_get_request(url, headers=headers)
     spo_votes = {}
     if data:
         for vote in data:
-            if vote.get('voter_type') == 'stake_pool_key_hash' and vote.get('stake_pool'):
-                spo_votes[vote['stake_pool']] = vote['vote'].capitalize()
+            if vote.get('voter_role') == 'SPO' and vote.get('stake_pool_id'):
+                spo_votes[vote['stake_pool_id']] = vote['vote'].capitalize()
     return spo_votes
 
 # --- Data Processing and Gist Update -----------------------------------------
-def generate_and_publish_report(all_pools, active_actions, maestro_api_key):
+def generate_and_publish_report(all_pools, active_actions, blockfrost_key):
     """Generates the final CSV report and updates the Gist."""
     report_rows = []
     
@@ -135,9 +137,8 @@ def generate_and_publish_report(all_pools, active_actions, maestro_api_key):
     else:
         for action in active_actions:
             action_tx_hash = action['tx_hash']
-            action_index = action['index']
-            action_title = f"Proposal ({action_tx_hash[:10]}...)"
-            spo_votes_for_action = fetch_spo_votes_for_action(action_tx_hash, action_index, maestro_api_key)
+            action_title = f"Proposal ({action['type']}: {action_tx_hash[:10]}...)"
+            spo_votes_for_action = fetch_spo_votes_for_action(action_tx_hash, blockfrost_key)
             
             for pool_id, pool_info in all_pools.items():
                 vote = spo_votes_for_action.get(pool_id, "Did Not Vote")
@@ -199,20 +200,17 @@ def update_github_gist(file_path):
 # --- Main Execution ----------------------------------------------------------
 def main():
     """Main script execution flow."""
-    # THIS IS THE NEW LINE FOR PROOF
-    print("--- RUNNING LATEST MAESTRO SCRIPT V3 ---", file=sys.stderr)
-    
-    maestro_api_key = os.getenv('MAESTRO_API_KEY')
-    if not maestro_api_key:
-        logging.error("MAESTRO_API_KEY environment variable not set. Exiting.")
+    blockfrost_key = os.getenv('BLOCKFROST_PROJECT_ID')
+    if not blockfrost_key:
+        logging.error("BLOCKFROST_PROJECT_ID environment variable not set. Exiting.")
         return
 
     all_pools = fetch_all_pool_details()
     if not all_pools:
         return
         
-    active_actions = fetch_active_governance_actions(maestro_api_key)
-    generate_and_publish_report(all_pools, active_actions, maestro_api_key)
+    active_actions = fetch_active_governance_actions(blockfrost_key)
+    generate_and_publish_report(all_pools, active_actions, blockfrost_key)
     
     logging.info("Script finished.")
 
