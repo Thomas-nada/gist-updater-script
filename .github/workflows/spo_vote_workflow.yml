@@ -43,9 +43,8 @@ jobs:
           # This securely passes your repository secrets to the script as environment variables.
           GIST_ID: ${{ secrets.SPO_VOTE_GIST_ID }}
           GITHUB_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
-          MAESTRO_API_KEY: ${{ secrets.MAESTRO_API_KEY }}
+          # This provides the Blockfrost API key that the script now uses.
+          BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}
         # This is the command that executes your new script.
-        run: |
-          echo "--- EXECUTING WORKFLOW V3 ---"
-          python spo_vote_tracker.py
+        run: python spo_vote_tracker.py
 
