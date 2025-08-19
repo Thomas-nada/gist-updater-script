@@ -29,7 +29,8 @@ def get_blockfrost_project_id():
 
 def fetch_all_governance_actions(project_id):
     """Fetches all governance action proposals from Blockfrost, handling pagination."""
-    headers = {'project_id': project_id}
+    # THE FIX: Header key changed to 'Project_id' with a capital 'P'.
+    headers = {'Project_id': project_id}
     all_proposals = []
     page = 1
     
@@ -48,6 +49,7 @@ def fetch_all_governance_actions(project_id):
             page += 1
         except requests.exceptions.HTTPError as http_err:
             print(f"❌ HTTP error occurred during Blockfrost fetch: {http_err}")
+            print(f"❌ Server response: {response.text}")
             return None
         except requests.exceptions.RequestException as req_err:
             print(f"❌ An error occurred during Blockfrost request: {req_err}")
@@ -73,10 +75,8 @@ def convert_proposals_to_csv(proposals):
     if not proposals:
         return ""
     
-    # Use an in-memory string buffer for CSV writing
     output = io.StringIO()
     
-    # Define CSV headers, flattening nested JSON objects for clarity
     fieldnames = [
         'proposal_id', 'tx_hash', 'output_index', 'type', 
         'expiry_epoch', 'ratified_epoch', 'enacted_epoch',
@@ -87,7 +87,6 @@ def convert_proposals_to_csv(proposals):
     writer.writeheader()
     
     for proposal in proposals:
-        # Create a flattened dictionary for the CSV row
         row = {
             'proposal_id': proposal.get('proposal_id', ''),
             'tx_hash': proposal.get('tx_hash', ''),
@@ -96,10 +95,8 @@ def convert_proposals_to_csv(proposals):
             'expiry_epoch': proposal.get('expiry_epoch'),
             'ratified_epoch': proposal.get('ratified_epoch'),
             'enacted_epoch': proposal.get('enacted_epoch'),
-            # Safely access nested 'anchor' object
             'anchor_url': proposal.get('anchor', {}).get('url', ''),
             'anchor_data_hash': proposal.get('anchor', {}).get('data_hash', ''),
-            # Join the list of committee votes into a single comma-separated string
             'committee_votes': ','.join(proposal.get('committee_votes', []))
         }
         writer.writerow(row)
@@ -117,12 +114,12 @@ def create_gist(token, filename, content, description):
     headers = {
         'Authorization': f'Bearer {token}',
         'Accept': 'application/vnd.github.v3+json',
-        'X-GitHub-Api-Version': '2022-11-28' # Recommended practice
+        'X-GitHub-Api-Version': '2022-11-28'
     }
     
     payload = {
         'description': description,
-        'public': False,  # Creates a secret Gist, only accessible via URL
+        'public': False,
         'files': {
             filename: {
                 'content': content
@@ -132,7 +129,7 @@ def create_gist(token, filename, content, description):
     
     try:
         response = requests.post(GH_API_URL, headers=headers, data=json.dumps(payload))
-        response.raise_for_status() # Raises an exception for 4xx/5xx status codes
+        response.raise_for_status()
         
         gist_data = response.json()
         gist_url = gist_data.get('html_url')
@@ -150,14 +147,12 @@ def create_gist(token, filename, content, description):
 
 def main():
     """Main function to execute the script."""
-    # Part 1: Fetch data
     bf_project_id = get_blockfrost_project_id()
     proposals = fetch_all_governance_actions(bf_project_id)
     
     if proposals:
         print(f"\nFetched a total of {len(proposals)} governance proposals.")
         
-        # Part 2: Process and upload
         print("Converting data to CSV format...")
         csv_content = convert_proposals_to_csv(proposals)
         
