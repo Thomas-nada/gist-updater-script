@@ -3,6 +3,7 @@ import aiohttp
 import pandas as pd
 import json
 from datetime import datetime
+import os
 
 # --- Configuration ---
 API_BASE = "https://api.koios.rest/api/v1"
@@ -12,6 +13,10 @@ OUTPUT_FILENAME = "governance_data.json"
 
 # Using a proxy to avoid potential CORS or IP blocking issues, similar to the web version
 PROXY_URL = "https://corsproxy.io/?"
+
+# Gist configuration - read from environment variables
+GOVERNANCE_GIST_ID = os.getenv('GOVERNANCE_GIST_ID') # Renamed from GIST_ID
+GIST_TOKEN = os.getenv('GIST_TOKEN')
 
 # --- Helper Functions ---
 
@@ -48,7 +53,6 @@ async def fetch_spo_data():
     print("Fetching SPO directory...")
     try:
         df = pd.read_csv(SPO_DATA_URL)
-        # Convert DataFrame to a list of dictionaries for JSON serialization
         return df.to_dict(orient='records')
     except Exception as e:
         print(f"Error fetching SPO data: {e}")
@@ -70,14 +74,12 @@ async def fetch_proposals_data(session, all_spos):
     ]
     print(f"Found {len(active_proposals)} active proposals. Fetching details...")
 
-    # Create tasks to fetch summaries and votes for all proposals concurrently
     summary_tasks = [fetch_json(session, f"{API_BASE}/proposal_voting_summary?_proposal_id={p['proposal_id']}") for p in active_proposals]
     vote_tasks = [fetch_json(session, f"{API_BASE}/proposal_votes?_proposal_id={p['proposal_id']}") for p in active_proposals]
     
     summaries_list = await asyncio.gather(*summary_tasks)
     votes_list = await asyncio.gather(*vote_tasks)
 
-    # Process and combine all the data
     enriched_proposals = []
     for i, p in enumerate(active_proposals):
         summary = summaries_list[i][0] if summaries_list[i] else {}
@@ -104,7 +106,7 @@ async def fetch_proposals_data(session, all_spos):
                 delegation_status = str(spo.get('vote', '')).lower()
                 if 'always abstain' in delegation_status:
                     spo_vote_power['Abstain'] += power
-                else: # Default to 'No' if not explicitly abstained or voted
+                else:
                     spo_vote_power['No'] += power
 
         active_voting_power = spo_vote_power['Yes'] + spo_vote_power['No']
@@ -133,19 +135,44 @@ async def fetch_proposals_data(session, all_spos):
     print("Finished processing proposals.")
     return enriched_proposals
 
+# --- Gist Update Function ---
+
+async def update_gist(session, data_to_upload):
+    """Updates a GitHub Gist with the provided data."""
+    if not GOVERNANCE_GIST_ID or not GIST_TOKEN:
+        print("GOVERNANCE_GIST_ID or GIST_TOKEN not set. Skipping Gist update.")
+        return
+
+    gist_url = f"https://api.github.com/gists/{GOVERNANCE_GIST_ID}"
+    headers = {
+        "Authorization": f"token {GIST_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    payload = {
+        "files": {
+            OUTPUT_FILENAME: {
+                "content": json.dumps(data_to_upload, indent=2)
+            }
+        }
+    }
+    
+    print(f"Updating Gist {GOVERNANCE_GIST_ID}...")
+    try:
+        async with session.patch(gist_url, headers=headers, json=payload) as response:
+            response.raise_for_status()
+            print("✅ Gist updated successfully.")
+    except aiohttp.ClientError as e:
+        print(f"❌ Error updating Gist: {e}")
+
 # --- Main Execution ---
 
 async def main():
-    """Main function to run all data fetching tasks."""
+    """Main function to run all data fetching and updating tasks."""
     async with aiohttp.ClientSession() as session:
-        # Fetch SPO and DRep data first
         spo_data = await fetch_spo_data()
         drep_data = await fetch_drep_data(session)
-        
-        # Then fetch proposals, which depends on SPO data for calculations
         proposal_data = await fetch_proposals_data(session, spo_data)
 
-        # Combine all data into a final dictionary
         final_data = {
             "last_updated_utc": datetime.utcnow().isoformat(),
             "proposals": proposal_data,
@@ -153,17 +180,14 @@ async def main():
             "spos": spo_data
         }
 
-        # Save to a JSON file
+        # Save to a local file (optional, but good for debugging)
         with open(OUTPUT_FILENAME, 'w') as f:
             json.dump(final_data, f, indent=2)
+        print(f"Local file '{OUTPUT_FILENAME}' saved.")
         
-        print(f"\n✅ Successfully fetched all data and saved to '{OUTPUT_FILENAME}'")
-        print(f"   - Proposals: {len(proposal_data)}")
-        print(f"   - DReps: {len(drep_data)}")
-        print(f"   - SPOs: {len(spo_data)}")
+        # Update the Gist
+        await update_gist(session, final_data)
 
 
 if __name__ == "__main__":
-    # To run on Windows, you might need to set a different event loop policy
-    # For example: asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
