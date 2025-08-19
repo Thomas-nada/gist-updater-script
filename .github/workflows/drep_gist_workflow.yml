@@ -37,6 +37,6 @@ jobs:
         env:
           # These secrets are configured in the repository settings
           DREP_GIST_ID: ${{ secrets.DREP_GIST_ID }}
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_UPDATE_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
         run: python update_drep_gist.py
 
