@@ -15,7 +15,7 @@ OUTPUT_FILENAME = "governance_data.json"
 PROXY_URL = "https://corsproxy.io/?"
 
 # Gist configuration - read from environment variables
-GOVERNANCE_GIST_ID = os.getenv('GOVERNANCE_GIST_ID') # Renamed from GIST_ID
+GOVERNANCE_GIST_ID = os.getenv('GOVERNANCE_GIST_ID')
 GIST_TOKEN = os.getenv('GIST_TOKEN')
 
 # --- Helper Functions ---
@@ -25,7 +25,8 @@ async def fetch_json(session, url):
     try:
         async with session.get(f"{PROXY_URL}{url}") as response:
             response.raise_for_status()
-            return await response.json()
+            # FIX: Ignore the content type from the proxy server
+            return await response.json(content_type=None)
     except aiohttp.ClientError as e:
         print(f"Error fetching {url}: {e}")
         return None
