@@ -1,9 +1,20 @@
 // This is a serverless function, designed to run on platforms like Vercel or Netlify.
-// It acts as a secure proxy to the Gemini API. This is a comment
+// It acts as a secure proxy to the Gemini API.
 
 // The handler function that receives requests.
 export default async function handler(request, response) {
-  // Only allow POST requests.
+  // --- CORS Headers ---
+  // This allows any website to make requests to this API.
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests (sent by browsers to check CORS settings)
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
+  }
+  
+  // Only allow POST requests for the actual API call.
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method Not Allowed' });
   }
