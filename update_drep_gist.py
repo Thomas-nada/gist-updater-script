@@ -49,9 +49,10 @@ def koios_paginated_fetch(endpoint):
             return None
     return full_list
 
-def koios_post_fetch_batched(endpoint, id_list, id_key, batch_size=100):
+def koios_post_fetch_batched(endpoint, id_list, id_key, batch_size=50):
     """
     Fetches data from a Koios POST endpoint in batches.
+    Reduced batch_size to 50 to avoid "Request Entity Too Large" errors.
     """
     full_results = []
     for i in range(0, len(id_list), batch_size):
