@@ -1,0 +1,42 @@
+# This GitHub Action workflow runs a Python script on a schedule to update a Gist.
+
+name: Update DRep Directory Gist
+
+# Controls when the workflow will run
+on:
+  # Runs on a schedule (every hour at the 5-minute mark)
+  schedule:
+    - cron: '5 * * * *'
+  
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  update-gist:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Sets up Python environment
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      # Installs dependencies required by the Python script
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # Runs the Python script to fetch data and update the Gist
+      - name: Run Gist Updater Script
+        env:
+          # These secrets are configured in the repository settings
+          DREP_GIST_ID: ${{ secrets.DREP_GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: python update_drep_gist.py
+
