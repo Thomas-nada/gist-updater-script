@@ -102,7 +102,6 @@ def fetch_active_governance_actions(maestro_api_key):
     headers = {'api-key': maestro_api_key}
     data = api_get_request(f"{CONFIG['MAESTRO_BASE_URL']}/governance/proposals", headers=headers)
     if data:
-        # Maestro API returns proposals in various states, filter for 'voting'
         active_proposals = [p for p in data if p.get('state') == 'voting']
         logging.info(f"Found {len(active_proposals)} active governance actions.")
         return active_proposals
@@ -137,7 +136,6 @@ def generate_and_publish_report(all_pools, active_actions, maestro_api_key):
         for action in active_actions:
             action_tx_hash = action['tx_hash']
             action_index = action['index']
-            # Maestro doesn't provide a human-readable title, so we use the tx hash
             action_title = f"Proposal ({action_tx_hash[:10]}...)"
             spo_votes_for_action = fetch_spo_votes_for_action(action_tx_hash, action_index, maestro_api_key)
             
@@ -201,6 +199,9 @@ def update_github_gist(file_path):
 # --- Main Execution ----------------------------------------------------------
 def main():
     """Main script execution flow."""
+    # THIS IS THE NEW LINE FOR PROOF
+    print("--- RUNNING LATEST MAESTRO SCRIPT V3 ---", file=sys.stderr)
+    
     maestro_api_key = os.getenv('MAESTRO_API_KEY')
     if not maestro_api_key:
         logging.error("MAESTRO_API_KEY environment variable not set. Exiting.")
