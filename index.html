@@ -3,247 +3,1545 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cardano Stake Pool Governance Report</title>
+    <title>Cardano Governance Dashboard (Mainnet)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827;
+        }
+        /* Custom scrollbar for a more integrated look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* bg-gray-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* bg-gray-500 */
+        }
+        /* Style for the select dropdown arrow */
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.4-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 0.65rem;
+        }
+        .modal-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-track {
+            background: #374151; /* bg-gray-700 */
+        }
+        .modal-scrollbar::-webkit-scrollbar-thumb {
+            background: #6b7280; /* bg-gray-500 */
+            border-radius: 3px;
+        }
+        .threshold-line {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 2px;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        select:disabled, button:disabled, input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .ai-summary-content h1, .ai-summary-content h2, .ai-summary-content h3 {
+            font-weight: bold;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .ai-summary-content h1 { font-size: 1.25rem; }
+        .ai-summary-content h2 { font-size: 1.1rem; }
+        .ai-summary-content ul { list-style-type: disc; margin-left: 1.5rem; }
+        .ai-summary-content ol { list-style-type: decimal; margin-left: 1.5rem; }
+        .ai-summary-content a { color: #67e8f9; text-decoration: underline; }
+        .ai-summary-content p { margin-bottom: 1rem; }
+        .ai-summary-content ul li { margin-bottom: 0.75rem; }
+        .ai-summary-content .citation {
+            font-size: 0.75em;
+            color: #67e8f9; /* Tailwind cyan-300 */
+            vertical-align: super;
+            margin-left: 4px;
+            text-decoration: none;
+        }
+        .ai-summary-content strong {
+            color: #e5e7eb; /* gray-200 */
+        }
+
+        .gemini-button {
+            background: linear-gradient(to right, #4f46e5, #9333ea);
+        }
+        .nav-button[aria-selected="true"] {
+            background-color: #0891b2; /* cyan-600 */
+            color: white;
+        }
+         .nav-button[aria-selected="false"] {
+            background-color: #374151; /* gray-700 */
+            color: #d1d5db; /* gray-300 */
+        }
+        .view-drep-metadata-btn.has-metadata {
+            color: #67e8f9; /* cyan-300 */
+            text-decoration: underline;
+        }
+        .view-drep-metadata-btn.no-metadata {
+            color: #6b7280; /* gray-500 */
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+        .view-toggle-btn[aria-selected="true"] {
+            background-color: #0891b2;
+            color: white;
+        }
+        .view-toggle-btn[aria-selected="false"] {
+            background-color: transparent;
             color: #d1d5db;
         }
-        .card {
-            background-color: #1f2937;
-            border: 1px solid #374151;
-        }
-        .table-header {
-            background-color: #374151;
-        }
-        .table-row-dark {
-            background-color: #1f2937;
-        }
-        .table-row-light {
-            background-color: #263142;
-        }
-        .search-input {
-            background-color: #374151;
-            border: 1px solid #4b5563;
-        }
-        .tag {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 500;
-            font-size: 0.75rem;
-            line-height: 1rem;
-        }
-        .loader {
-            border: 4px solid #374151;
-            border-top: 4px solid #3b82f6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .joke-text {
+            white-space: pre-line;
         }
     </style>
 </head>
-<body class="p-4 sm:p-6 md:p-8">
+<body class="bg-gray-900 text-gray-200 antialiased">
 
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">Cardano Stake Pool Governance Report</h1>
-            <p class="text-gray-400">Updates every 30 minutes</p>
-        </div>
+    <!-- Global Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex flex-col items-center justify-center text-center p-10">
+        <svg class="animate-spin h-12 w-12 text-white mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <h2 class="text-2xl font-bold text-white mb-2">Loading Governance Data...</h2>
+        <p id="loading-status" class="text-lg text-gray-400 w-full max-w-md">Initializing...</p>
+    </div>
 
-        <!-- Summary Cards -->
-        <div id="summary-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <!-- Cards will be injected by JS -->
-        </div>
 
-        <!-- Filters -->
-        <div class="flex flex-col sm:flex-row gap-4 mb-6 p-4 card rounded-lg">
-            <div class="flex-grow">
-                <label for="search-input" class="block text-sm font-medium text-gray-300 mb-1">Search Pools</label>
-                <input type="text" id="search-input" placeholder="Search by ticker, ID, or homepage..." class="w-full p-2 rounded-md search-input focus:ring-2 focus:ring-blue-500 focus:outline-none">
+    <!-- Main Container -->
+    <div id="main-content" class="container mx-auto p-4 sm:p-6 lg:p-8 opacity-0 transition-opacity duration-500">
+
+        <!-- Header Section -->
+        <header class="relative text-center mb-4">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">Cardano Governance Dashboard</h1>
+            <p class="text-gray-400 font-medium">Live Data for Cardano Mainnet</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="flex flex-wrap justify-center mb-8 bg-gray-800 rounded-lg p-1">
+            <button id="nav-proposals" class="nav-button font-semibold py-2 px-6 rounded-md transition-colors" aria-selected="true">Proposals</button>
+            <button id="nav-drep-directory" class="nav-button font-semibold py-2 px-6 rounded-md transition-colors" aria-selected="false">DRep Directory</button>
+            <button id="nav-spo-directory" class="nav-button font-semibold py-2 px-6 rounded-md transition-colors" aria-selected="false">SPO Directory</button>
+        </nav>
+
+        <!-- Proposals Page -->
+        <div id="proposals-page">
+            <!-- Filter and Sort Controls -->
+            <div id="controls" class="mb-8 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <select id="type-filter" class="bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none lg:col-span-1">
+                        <option value="all">Filter by Type: All</option>
+                        <option value="ParameterChange">Parameter Change</option>
+                        <option value="HardForkInitiation">Hard-Fork Initiation</option>
+                        <option value="TreasuryWithdrawals">Treasury Withdrawals</option>
+                        <option value="MotionOfNoConfidence">Motion of No-Confidence</option>
+                        <option value="NewCommittee">New Committee</option>
+                        <option value="UpdateToConstitution">Update Constitution</option>
+                        <option value="InfoAction">Info Action</option>
+                    </select>
+                    <div class="relative lg:col-span-2">
+                        <input type="text" id="search-filter" placeholder="Filter by title..." class="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-lg pl-4 pr-16 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                        <div id="view-toggle" class="absolute inset-y-0 right-0 flex items-center p-1 bg-gray-700 rounded-r-lg">
+                            <button id="view-grid-btn" class="view-toggle-btn p-1 rounded" aria-selected="true" title="Grid View">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                            </button>
+                            <button id="view-list-btn" class="view-toggle-btn p-1 rounded" aria-selected="false" title="List View">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <select id="sort-select" class="bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none lg:col-span-1">
+                        <option value="drep-yes-pct-desc">Sort by: Highest DRep Yes %</option>
+                        <option value="drep-yes-pct-asc">Sort by: Lowest DRep Yes %</option>
+                    </select>
+                </div>
+                <div>
+                        <select id="threshold-filter" class="w-full md:w-auto bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                        <option value="all">Filter by Status: All</option>
+                        <option value="passing">Passing Threshold</option>
+                        <option value="failing">Failing Threshold</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="vote-filter" class="block text-sm font-medium text-gray-300 mb-1">Filter by Vote</label>
-                <select id="vote-filter" class="w-full sm:w-auto p-2 rounded-md search-input focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    <option value="all">All Votes</option>
-                    <option value="Always Abstain">Always Abstain</option>
-                    <option value="Always No Confidence">Always No Confidence</option>
-                    <option value="Other">Other</option>
-                    <option value="Not Delegated">Not Delegated</option>
+            <main id="proposals-container"><!-- Proposals will be injected here --></main>
+        </div>
+
+        <!-- DRep Directory Page -->
+        <div id="drep-directory-page" class="hidden">
+             <div class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                 <input type="text" id="drep-search-filter" placeholder="Search by DRep ID or Name..." class="w-full md:col-span-1 bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                 <div class="flex flex-col sm:flex-row gap-4 md:col-span-2">
+                    <select id="drep-sort-select" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                        <option value="power-desc">Sort by: Highest Voting Power</option>
+                        <option value="power-asc">Sort by: Lowest Voting Power</option>
+                        <option value="id-asc">Sort by: DRep ID (A-Z)</option>
+                        <option value="id-desc">Sort by: DRep ID (Z-A)</option>
+                    </select>
+                    <div class="flex items-center justify-center p-2 rounded-lg bg-gray-800 border border-gray-700">
+                        <input type="checkbox" id="drep-rationale-filter" class="bg-gray-700 border border-gray-600 rounded focus:ring-cyan-500 h-4 w-4 text-cyan-600">
+                        <label for="drep-rationale-filter" class="ml-2 text-sm text-gray-300 whitespace-nowrap">Has Rationales</label>
+                    </div>
+                </div>
+            </div>
+            <div id="drep-metadata-status" class="text-center mb-4 text-sm text-gray-400"></div>
+            <main id="drep-list-container"><!-- DRep list will be injected here --></main>
+        </div>
+
+        <!-- SPO Directory Page -->
+        <div id="spo-directory-page" class="hidden">
+            <div id="spo-search-controls" class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="spo-search-filter" placeholder="Search by Ticker or Pool ID..." class="w-full bg-gray-800 border border-gray-700 text-white placeholder-gray-500 rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                <select id="spo-vote-filter" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none">
+                    <option value="all">Filter by Vote: All</option>
+                    <option value="abstain">Delegated to Abstain</option>
+                    <option value="no-confidence">Delegated to No Confidence</option>
+                    <option value="not-delegated">Not Delegated</option>
                 </select>
             </div>
+            <main id="spo-list-container"><!-- SPO list will be injected here --></main>
         </div>
+        
+        <!-- Footer -->
+        <footer class="text-center mt-12 text-gray-500 text-sm space-y-2">
+            <p>Data sourced from the <a href="https://koios.rest/" target="_blank" class="text-blue-400 hover:underline">Koios REST API</a>.</p>
+             <p>UI inspired by a <a href="https://github.com/IntersectMBO/governance-scripts/blob/main/scripts/query-live-actions.sh" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">script</a> by <a href="https://github.com/Ryun1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">Ryun1</a>.</p>
+            <p>Last updated: <span id="last-updated"></span></p>
+        </footer>
+    </div>
 
-        <!-- Data Table -->
-        <div class="card rounded-lg overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-700">
-                    <thead class="table-header">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Ticker</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Pool ID</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Homepage</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Voting Power (ADA)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Vote</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body" class="divide-y divide-gray-700">
-                        <!-- Rows will be injected by JS -->
-                    </tbody>
-                </table>
-                 <!-- Loading and Error States -->
-                <div id="loading-state" class="flex justify-center items-center p-10">
-                    <div class="loader"></div>
+    <!-- Modals -->
+    <div id="votes-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 id="modal-title" class="text-xl font-bold text-white">Votes</h3>
+                    <button id="modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
                 </div>
-                <div id="error-state" class="hidden text-center p-10">
-                    <p class="text-red-400 font-semibold">Could not load data.</p>
-                    <p class="text-gray-400 text-sm">There might be an issue with the Gist URL or network connection.</p>
-                </div>
-                 <div id="no-results-state" class="hidden text-center p-10">
-                    <p class="text-gray-400 font-semibold">No matching pools found.</p>
+                <div id="rationale-filter-container" class="flex items-center space-x-2">
+                    <input type="checkbox" id="rationale-filter" class="bg-gray-700 border border-gray-600 rounded focus:ring-cyan-500 h-4 w-4 text-cyan-600">
+                    <label for="rationale-filter" class="text-sm text-gray-300">Show only votes with rationale</label>
                 </div>
             </div>
+            <div id="modal-content" class="p-6 overflow-y-auto modal-scrollbar"><!-- Vote content here --></div>
+        </div>
+    </div>
+
+    <div id="ai-summary-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 id="ai-modal-title" class="text-xl font-bold text-white">✨ AI-Powered Summary</h3>
+                <button id="ai-modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="ai-modal-content" class="p-6 overflow-y-auto modal-scrollbar ai-summary-content"><!-- AI Summary here --></div>
+        </div>
+    </div>
+
+    <div id="rationale-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 id="rationale-modal-title" class="text-xl font-bold text-white">Vote Rationale</h3>
+                <button id="rationale-modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="rationale-modal-content" class="p-6 overflow-y-auto modal-scrollbar ai-summary-content"><!-- Rationale content will be loaded here --></div>
+        </div>
+    </div>
+    
+    <div id="sentiment-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 id="sentiment-modal-title" class="text-xl font-bold text-white">📊 Rationale Analysis Report</h3>
+                <button id="sentiment-modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="sentiment-modal-content" class="p-6 overflow-y-auto modal-scrollbar"><!-- Sentiment report here --></div>
+        </div>
+    </div>
+
+    <div id="drep-profile-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 id="drep-profile-modal-title" class="text-xl font-bold text-white">✨ AI-Generated DRep Profile</h3>
+                <button id="drep-profile-modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="drep-profile-modal-content" class="p-6 overflow-y-auto modal-scrollbar ai-summary-content"><!-- DRep profile here --></div>
+        </div>
+    </div>
+
+    <div id="drep-metadata-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 id="drep-metadata-modal-title" class="text-xl font-bold text-white">DRep Metadata</h3>
+                <button id="drep-metadata-modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="drep-metadata-modal-content" class="p-6 overflow-y-auto modal-scrollbar"><!-- DRep metadata will be loaded here --></div>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- CONFIG ---
-            const GIST_URL = 'https://gist.githubusercontent.com/Thomas-nada/7b742a3ca9e42281ae831b3da689c0b5/raw/governance-report.csv';
-            // The CORS proxy was removed as it was likely causing the 403 Forbidden error.
-            const DATA_URL = GIST_URL;
+            // --- DOM Elements ---
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingStatus = document.getElementById('loading-status');
+            const mainContent = document.getElementById('main-content');
+            const proposalsContainer = document.getElementById('proposals-container');
+            const drepListContainer = document.getElementById('drep-list-container');
+            const spoListContainer = document.getElementById('spo-list-container');
+            const lastUpdatedElement = document.getElementById('last-updated');
+            const drepMetadataStatus = document.getElementById('drep-metadata-status');
+            
+            // Page containers and nav
+            const proposalsPage = document.getElementById('proposals-page');
+            const drepDirectoryPage = document.getElementById('drep-directory-page');
+            const spoDirectoryPage = document.getElementById('spo-directory-page');
+            const navProposals = document.getElementById('nav-proposals');
+            const navDRepDirectory = document.getElementById('nav-drep-directory');
+            const navSpoDirectory = document.getElementById('nav-spo-directory');
 
-            // --- DOM ELEMENTS ---
-            const tableBody = document.getElementById('table-body');
-            const summaryContainer = document.getElementById('summary-cards');
-            const searchInput = document.getElementById('search-input');
-            const voteFilter = document.getElementById('vote-filter');
-            const loadingState = document.getElementById('loading-state');
-            const errorState = document.getElementById('error-state');
-            const noResultsState = document.getElementById('no-results-state');
+            // Proposal page controls
+            const searchInput = document.getElementById('search-filter');
+            const sortSelect = document.getElementById('sort-select');
+            const typeFilterSelect = document.getElementById('type-filter');
+            const thresholdFilterSelect = document.getElementById('threshold-filter');
+            const viewGridBtn = document.getElementById('view-grid-btn');
+            const viewListBtn = document.getElementById('view-list-btn');
 
-            let originalData = [];
+            // DRep page controls
+            const drepSearchInput = document.getElementById('drep-search-filter');
+            const drepRationaleFilter = document.getElementById('drep-rationale-filter');
+            const drepSortSelect = document.getElementById('drep-sort-select');
 
-            // --- VOTE STYLING MAP ---
-            const voteStyles = {
-                'Always Abstain': 'bg-yellow-900/50 text-yellow-300 border border-yellow-700',
-                'Always No Confidence': 'bg-red-900/50 text-red-300 border border-red-700',
-                'Other': 'bg-blue-900/50 text-blue-300 border border-blue-700',
-                'Not Delegated': 'bg-gray-700/50 text-gray-300 border border-gray-600'
+            // SPO page controls
+            const spoSearchInput = document.getElementById('spo-search-filter');
+            const spoVoteFilter = document.getElementById('spo-vote-filter');
+            
+            // Modals
+            const votesModal = document.getElementById('votes-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            const rationaleFilterContainer = document.getElementById('rationale-filter-container');
+            const rationaleFilterCheckbox = document.getElementById('rationale-filter');
+            const aiSummaryModal = document.getElementById('ai-summary-modal');
+            const aiModalTitle = document.getElementById('ai-modal-title');
+            const aiModalContent = document.getElementById('ai-modal-content');
+            const aiModalCloseBtn = document.getElementById('ai-modal-close-btn');
+            const rationaleModal = document.getElementById('rationale-modal');
+            const rationaleModalTitle = document.getElementById('rationale-modal-title');
+            const rationaleModalContent = document.getElementById('rationale-modal-content');
+            const rationaleModalCloseBtn = document.getElementById('rationale-modal-close-btn');
+            const sentimentModal = document.getElementById('sentiment-modal');
+            const sentimentModalTitle = document.getElementById('sentiment-modal-title');
+            const sentimentModalContent = document.getElementById('sentiment-modal-content');
+            const sentimentModalCloseBtn = document.getElementById('sentiment-modal-close-btn');
+            const drepProfileModal = document.getElementById('drep-profile-modal');
+            const drepProfileModalTitle = document.getElementById('drep-profile-modal-title');
+            const drepProfileModalContent = document.getElementById('drep-profile-modal-content');
+            const drepProfileModalCloseBtn = document.getElementById('drep-profile-modal-close-btn');
+            const drepMetadataModal = document.getElementById('drep-metadata-modal');
+            const drepMetadataModalTitle = document.getElementById('drep-metadata-modal-title');
+            const drepMetadataModalContent = document.getElementById('drep-metadata-modal-content');
+            const drepMetadataModalCloseBtn = document.getElementById('drep-metadata-modal-close-btn');
+
+
+            // --- State and Configuration ---
+            let allFetchedProposals = [];
+            let allHistoricalProposals = [];
+            let allFetchedDReps = [];
+            let allFetchedSPOs = [];
+            let drepsWithRationales = null; // null: not built, Set: built
+            let drepsWithMetadata = null; // null: not checked, Map: checked
+            let drepsVotingPower = null; // null: not checked, Map: checked
+            let currentModalVotes = [];
+            let currentModalVoterType = ''; // 'DRep', 'SPO', 'DRepHistory'
+            let voterVoteHistory = [];
+            let dataCache = { proposals: false, dreps: false, spos: false };
+            let analysisCharts = [];
+            let currentVoteChart = null;
+            let currentProposalView = 'grid';
+            let currentPage = 'proposals';
+
+            const API_BASE = "https://api.koios.rest/api/v1";
+            const GOV_TOOLS_URL = "https://gov.tools";
+            const SPO_DATA_URL = "https://gist.githubusercontent.com/Thomas-nada/7b742a3ca9e42281ae831b3da689c0b5/raw/fcf93ff7fae331a329f2ed69267bdf44e29f021e/governance-report.csv";
+            const DREP_DATA_URL = "https://gist.githubusercontent.com/Thomas-nada/28f6ba461017efcb5ab942964776923e/raw/509ad05637b91d228b2bf0b6e26cd38d9641dd4d/drep_directory.json";
+            const VERCEL_DATA_ENDPOINT = "https://gist-updater-script-2802d5k1s-thomas-projects-bab4a797.vercel.app/api/data";
+
+
+            const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true, openLinksInNewWindow: true });
+            
+            const typeStyles = {
+                'MotionOfNoConfidence': { text: 'Motion of No-Confidence', classes: 'bg-red-800 text-red-100 border-red-600' },
+                'NewCommittee': { text: 'New Committee', classes: 'bg-blue-800 text-blue-100 border-blue-600' },
+                'UpdateToConstitution': { text: 'Update Constitution', classes: 'bg-indigo-800 text-indigo-100 border-indigo-600' },
+                'HardForkInitiation': { text: 'Hard Fork', classes: 'bg-amber-800 text-amber-100 border-amber-600' },
+                'TreasuryWithdrawals': { text: 'Treasury Withdrawal', classes: 'bg-green-800 text-green-100 border-green-600' },
+                'ParameterChange': { text: 'Parameter Change', classes: 'bg-teal-800 text-teal-100 border-teal-600'},
+                'InfoAction': { text: 'Info Action', classes: 'bg-gray-700 text-gray-200 border-gray-500' },
+                'Default': { text: 'Unknown Type', classes: 'bg-gray-700 text-gray-200 border-gray-500' }
             };
+            
+            // --- Helper & Utility Functions ---
+            const pascalToTitleCase = (s) => s ? s.replace(/([A-Z])/g, ' $1').trim() : '';
+            const proxyUrl = (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const showLoading = (container) => {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center text-center p-10"><svg class="animate-spin h-8 w-8 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p class="text-gray-500">Fetching data...</p></div>`;
+            };
+            const updateLoadingStatus = (text) => {
+                if(loadingStatus) loadingStatus.textContent = text;
+            }
+            const displayError = (container, message) => {
+                container.innerHTML = `<div class="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg"><strong class="font-bold">Error:</strong> <span>${message}</span></div>`;
+            };
+            const setControlsDisabled = (disabled) => [searchInput, sortSelect, typeFilterSelect, thresholdFilterSelect, drepSearchInput, drepRationaleFilter, drepSortSelect, spoSearchInput, spoVoteFilter].forEach(el => el.disabled = disabled);
 
-            // --- DATA FETCHING ---
-            async function fetchData() {
-                try {
-                    const data = await d3.csv(DATA_URL);
-                    originalData = data.map(d => ({
-                        ...d,
-                        voting_power_ada: parseFloat(d.voting_power_ada) || 0
-                    }));
-                    
-                    loadingState.style.display = 'none';
-                    renderAll();
-                } catch (error) {
-                    console.error('Error fetching data:', error);
-                    loadingState.style.display = 'none';
-                    errorState.style.display = 'block';
+            // --- Page Navigation ---
+            function showPage(page) {
+                currentPage = page;
+                proposalsPage.classList.toggle('hidden', page !== 'proposals');
+                drepDirectoryPage.classList.toggle('hidden', page !== 'dreps');
+                spoDirectoryPage.classList.toggle('hidden', page !== 'spos');
+                
+                navProposals.setAttribute('aria-selected', page === 'proposals');
+                navDRepDirectory.setAttribute('aria-selected', page === 'dreps');
+                navSpoDirectory.setAttribute('aria-selected', page === 'spos');
+
+                if (page === 'proposals') applyProposalFilters();
+                if (page === 'dreps') fetchAndDisplayDReps();
+                if (page === 'spos') fetchAndDisplaySPOs();
+            }
+
+            // --- Data Fetching ---
+            async function fetchAllInitialData() {
+                updateLoadingStatus('Fetching all governance data...');
+                const res = await fetch(VERCEL_DATA_ENDPOINT);
+                if (!res.ok) {
+                    const errorBody = await res.json();
+                    throw new Error(`Failed to fetch initial data: ${errorBody.details || res.statusText}`);
+                }
+                const data = await res.json();
+
+                // Process SPO CSV
+                const rows = data.spoDataCsv.trim().split('\n');
+                const headers = rows.shift().split(',');
+                allFetchedSPOs = rows.map(row => {
+                    const values = row.split(',');
+                    return headers.reduce((obj, header, i) => {
+                        obj[header.trim()] = values[i] ? values[i].trim() : '';
+                        return obj;
+                    }, {});
+                });
+                dataCache.spos = true;
+
+                // Process DRep Data
+                allFetchedDReps = data.drepData;
+                drepsWithMetadata = new Map(data.drepData.map(d => [d.drep_id, d.name || true]));
+                drepsVotingPower = new Map(data.drepData.map(d => [d.drep_id, d.voting_power]));
+                dataCache.dreps = true;
+                
+                return data.proposalList;
+            }
+
+            async function fetchProposalsData(initialProposalList) {
+                // Step 1: Use the pre-fetched active proposal list
+                const activeProposals = initialProposalList.filter(p => p.ratified_epoch === null && p.enacted_epoch === null && p.dropped_epoch === null && p.expired_epoch === null && p.proposal_type !== 'CommitteeNoConfidence');
+                
+                // Step 2: Fetch all voting summaries and votes in parallel
+                const summaryPromises = activeProposals.map(p =>
+                    fetch(proxyUrl(`${API_BASE}/proposal_voting_summary?_proposal_id=${p.proposal_id}`))
+                    .then(res => res.ok ? res.json() : [null])
+                    .then(summaryArr => ({ proposal_id: p.proposal_id, summary: summaryArr[0] }))
+                    .catch(() => ({ proposal_id: p.proposal_id, summary: null }))
+                );
+                
+                const votePromises = activeProposals.map(p =>
+                    fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${p.proposal_id}`))
+                    .then(res => res.ok ? res.json() : [])
+                    .catch(() => [])
+                );
+
+                const summaryResults = await Promise.all(summaryPromises);
+                const allVotesByProposal = await Promise.all(votePromises);
+                const summaryMap = new Map(summaryResults.map(item => [item.proposal_id, item.summary]));
+                const votesMap = new Map(activeProposals.map((p, i) => [p.proposal_id, allVotesByProposal[i]]));
+
+                // Step 3: Combine all data sources
+                allFetchedProposals = activeProposals.map(p => {
+                    const summary = summaryMap.get(p.proposal_id) || {};
+                    const votes = votesMap.get(p.proposal_id) || [];
+                    const spoVotes = votes.filter(v => v.voter_role === 'SPO');
+                    const explicitlyVotedSpoIds = new Set(spoVotes.map(v => v.voter_id));
+
+                    const spoVotePower = { Yes: 0, No: 0, Abstain: 0 };
+                    const spoVoteCount = { Yes: 0, No: 0, Abstain: 0 };
+
+                    for (const spo of allFetchedSPOs) {
+                        const power = parseFloat(spo.voting_power_ada) || 0;
+                        if (power === 0) continue;
+
+                        if (explicitlyVotedSpoIds.has(spo.pool_id)) {
+                            const explicitVote = spoVotes.find(v => v.voter_id === spo.pool_id);
+                            if (explicitVote.vote === 'Yes') {
+                                spoVotePower.Yes += power;
+                                spoVoteCount.Yes++;
+                            } else if (explicitVote.vote === 'No') {
+                                spoVotePower.No += power;
+                                spoVoteCount.No++;
+                            } else if (explicitVote.vote === 'Abstain') {
+                                spoVotePower.Abstain += power;
+                                spoVoteCount.Abstain++;
+                            }
+                        } else {
+                            const delegationStatus = (spo.vote || '').toLowerCase();
+                            if (delegationStatus.includes('always abstain')) {
+                                spoVotePower.Abstain += power;
+                            } else if (delegationStatus.includes('always no confidence')) {
+                                spoVotePower.No += power;
+                            } else {
+                                spoVotePower.No += power; // Not yet voted = No
+                            }
+                        }
+                    }
+
+                    const activeVotingPower = spoVotePower.Yes + spoVotePower.No;
+                    const spo_yes_pct = activeVotingPower > 0 ? (spoVotePower.Yes / activeVotingPower) * 100 : 0;
+
+                    return {
+                        ...p,
+                        ...summary,
+                        type: p.proposal_type,
+                        title: p.meta_json?.body?.title || 'No Title',
+                        abstract: p.meta_json?.body?.abstract || '',
+                        motivation: p.meta_json?.body?.motivation || '',
+                        rationale: p.meta_json?.body?.rationale || '',
+                        drep_yes_pct: parseFloat(summary.drep_yes_pct || 0),
+                        drep_yes_votes_cast: parseInt(summary.drep_yes_votes_cast || 0),
+                        drep_no_votes_cast: parseInt(summary.drep_no_votes_cast || 0),
+                        drep_abstain_votes_cast: parseInt(summary.drep_abstain_votes_cast || 0),
+                        spo_yes_pct: spo_yes_pct,
+                        spo_yes_power: spoVotePower.Yes,
+                        spo_no_power: spoVotePower.No,
+                        spo_abstain_power: spoVotePower.Abstain,
+                        spo_yes_votes_cast: spoVoteCount.Yes,
+                        spo_no_votes_cast: spoVoteCount.No,
+                        spo_abstain_votes_cast: spoVoteCount.Abstain,
+                        has_spo_votes: spoVotes.length > 0
+                    };
+                });
+                dataCache.proposals = true;
+            }
+            
+            // --- Proposal Page Logic ---
+            const getThresholds = (t) => ({'TreasuryWithdrawals':{drep:0.67,spo:0.51},'HardForkInitiation':{drep:0.6,spo:0.51},'MotionOfNoConfidence':{drep:0.67,spo:0.51},'NewCommittee':{drep:0.67,spo:0.51},'UpdateToConstitution':{drep:0.75,spo:0.51},'ParameterChange':{drep:0.67,spo:0.51},'InfoAction':{drep:null,spo:null}})[t]||{drep:null,spo:null};
+            
+            function renderProposals(proposals) {
+                if (currentProposalView === 'grid') {
+                    renderProposalsGrid(proposals);
+                } else {
+                    renderProposalsList(proposals);
                 }
             }
-
-            // --- RENDERING FUNCTIONS ---
-            function renderAll() {
-                const filteredData = filterData();
-                renderSummary(filteredData);
-                renderTable(filteredData);
-            }
-
-            function renderSummary(data) {
-                const totalPools = data.length;
-                const totalPower = data.reduce((sum, d) => sum + d.voting_power_ada, 0);
-                const voteCounts = d3.rollup(data, v => v.length, d => d.vote);
-
-                const cards = [
-                    { label: 'Total Pools', value: totalPools.toLocaleString() },
-                    { label: 'Total Voting Power', value: `${Math.round(totalPower / 1_000_000).toLocaleString()}M ADA` },
-                    { label: 'Abstain', value: (voteCounts.get('Always Abstain') || 0).toLocaleString() },
-                    { label: 'No Confidence', value: (voteCounts.get('Always No Confidence') || 0).toLocaleString() }
-                ];
-
-                summaryContainer.innerHTML = cards.map(card => `
-                    <div class="card rounded-lg p-4">
-                        <p class="text-sm text-gray-400">${card.label}</p>
-                        <p class="text-2xl font-bold text-white">${card.value}</p>
-                    </div>
-                `).join('');
-            }
-
-            function renderTable(data) {
-                tableBody.innerHTML = ''; // Clear existing rows
-                
-                if (data.length === 0) {
-                    noResultsState.style.display = 'block';
+            
+            function renderProposalsGrid(proposals) {
+                proposalsContainer.innerHTML = '';
+                if (proposals.length === 0) {
+                    proposalsContainer.innerHTML = `<div class="text-center p-10 bg-gray-800 rounded-lg col-span-full"><p class="text-lg">No proposals match filters.</p></div>`;
                     return;
                 }
-                noResultsState.style.display = 'none';
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+                proposals.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col transition-all duration-300 hover:shadow-cyan-500/20 hover:ring-1 hover:ring-cyan-800';
+                    const style = typeStyles[p.type] || { ...typeStyles['Default'], text: pascalToTitleCase(p.type) };
+                    const thresholds = getThresholds(p.type);
+                    
+                    const spoVoteHTML = p.has_spo_votes ? `
+                        <div>
+                            <div class="flex justify-between items-end mb-1"><span class="text-sm font-medium text-purple-400">SPO "Yes" (by stake)</span><span class="text-xl font-bold text-purple-300">${p.spo_yes_pct.toFixed(2)}%</span></div>
+                            <div class="relative w-full bg-gray-700 rounded-full h-3"><div class="bg-gradient-to-r from-purple-500 to-fuchsia-400 h-3 rounded-full" style="width: ${p.spo_yes_pct}%"></div>${thresholds.spo ? `<div class="threshold-line bg-yellow-300" style="left: ${thresholds.spo*100}%" title="Threshold: ${(thresholds.spo*100).toFixed(0)}%"></div>` : ''}</div>
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs mt-2">
+                                <div><p class="text-gray-400">Yes</p><p class="font-semibold">${p.spo_yes_votes_cast.toLocaleString()}</p></div>
+                                <div><p class="text-gray-400">No</p><p class="font-semibold">${p.spo_no_votes_cast.toLocaleString()}</p></div>
+                                <div><p class="text-gray-400">Abstain</p><p class="font-semibold">${p.spo_abstain_votes_cast.toLocaleString()}</p></div>
+                            </div>
+                        </div>` : '';
 
-                data.forEach((d, i) => {
-                    const rowClass = i % 2 === 0 ? 'table-row-dark' : 'table-row-light';
-                    const voteClass = voteStyles[d.vote] || voteStyles['Not Delegated'];
-                    const row = document.createElement('tr');
-                    row.className = `${rowClass} hover:bg-gray-700/50 transition-colors duration-150`;
 
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${d.ticker || 'N/A'}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300" title="${d.pool_id}">
-                            ${d.pool_id.substring(0, 12)}...
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                            ${d.homepage ? `<a href="${d.homepage}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">${d.homepage.replace(/^(https?:\/\/)?(www\.)?/, '')}</a>` : 'N/A'}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${d.voting_power_ada.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="tag ${voteClass}">${d.vote}</span>
-                        </td>
+                    card.innerHTML = `
+                        <div class="flex-grow space-y-4">
+                            <div>
+                                <span class="text-xs font-bold px-3 py-1 rounded-full border ${style.classes}">${style.text.toUpperCase()}</span>
+                            </div>
+                            <h2 class="text-lg font-bold text-white">${p.title}</h2>
+                            <a href="${GOV_TOOLS_URL}/governance_actions/${p.proposal_id}" target="_blank" rel="noopener noreferrer" class="block text-xs text-cyan-400 hover:underline break-all font-mono">ID: ${p.proposal_id}</a>
+                            
+                            <div>
+                                <div class="flex justify-between items-end mb-1"><span class="text-sm font-medium text-green-400">DRep "Yes"</span><span class="text-xl font-bold text-green-300">${p.drep_yes_pct.toFixed(2)}%</span></div>
+                                <div class="relative w-full bg-gray-700 rounded-full h-3"><div class="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full" style="width: ${p.drep_yes_pct}%"></div>${thresholds.drep ? `<div class="threshold-line bg-yellow-300" style="left: ${thresholds.drep*100}%" title="Threshold: ${(thresholds.drep*100).toFixed(0)}%"></div>` : ''}</div>
+                                <div class="grid grid-cols-3 gap-2 text-center text-xs mt-2">
+                                    <div><p class="text-gray-400">Yes</p><p class="font-semibold">${p.drep_yes_votes_cast.toLocaleString()}</p></div>
+                                    <div><p class="text-gray-400">No</p><p class="font-semibold">${p.drep_no_votes_cast.toLocaleString()}</p></div>
+                                    <div><p class="text-gray-400">Abstain</p><p class="font-semibold">${p.drep_abstain_votes_cast.toLocaleString()}</p></div>
+                                </div>
+                            </div>
+                            ${spoVoteHTML}
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-gray-700/50 flex flex-col gap-3">
+                            <button class="summarize-btn w-full gemini-button text-white font-bold py-2 px-4 rounded-lg" data-proposal-id="${p.proposal_id}">✨ Summarize with AI</button>
+                            <button class="analyze-rationales-btn w-full bg-teal-700 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg" data-proposal-id="${p.proposal_id}">📊 Analyze Votes & Rationales</button>
+                            <button class="view-votes-btn w-full bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg" data-proposal-id="${p.proposal_id}" data-voter-type="DRep">View DRep Votes</button>
+                            ${p.has_spo_votes ? `<button class="view-votes-btn w-full bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg" data-proposal-id="${p.proposal_id}" data-voter-type="SPO">View SPO Votes</button>` : ''}
+                        </div>`;
+                    grid.appendChild(card);
+                });
+                proposalsContainer.appendChild(grid);
+            }
+
+            function renderProposalsList(proposals) {
+                proposalsContainer.innerHTML = '';
+                if (proposals.length === 0) {
+                    proposalsContainer.innerHTML = `<div class="text-center p-10 bg-gray-800 rounded-lg"><p class="text-lg">No proposals match filters.</p></div>`;
+                    return;
+                }
+                const list = document.createElement('div');
+                list.className = 'space-y-3';
+                proposals.forEach(p => {
+                    const item = document.createElement('div');
+                    item.className = 'bg-gray-800 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4';
+                    const style = typeStyles[p.type] || { ...typeStyles['Default'], text: pascalToTitleCase(p.type) };
+                    const thresholds = getThresholds(p.type);
+
+                    const spoVoteHTML = p.has_spo_votes ? `
+                        <div>
+                            <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-purple-400">SPO "Yes"</span><span class="text-lg font-bold text-purple-300">${p.spo_yes_pct.toFixed(2)}%</span></div>
+                            <div class="relative w-full bg-gray-700 rounded-full h-2.5"><div class="bg-gradient-to-r from-purple-500 to-fuchsia-400 h-2.5 rounded-full" style="width: ${p.spo_yes_pct}%"></div>${thresholds.spo ? `<div class="threshold-line bg-yellow-300" style="left: ${thresholds.spo*100}%" title="Threshold: ${(thresholds.spo*100).toFixed(0)}%"></div>` : ''}</div>
+                        </div>` : '';
+
+                    item.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between">
+                                <h2 class="text-md font-bold text-white mb-1">${p.title}</h2>
+                                <span class="ml-4 flex-shrink-0 text-xs font-bold px-2 py-1 rounded-full border ${style.classes}">${style.text.toUpperCase()}</span>
+                            </div>
+                            <div class="text-xs mb-3">
+                                <a href="${GOV_TOOLS_URL}/governance_actions/${p.proposal_id}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline break-all font-mono">ID: ${p.proposal_id}</a>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-green-400">DRep "Yes"</span><span class="text-lg font-bold text-green-300">${p.drep_yes_pct.toFixed(2)}%</span></div>
+                                    <div class="relative w-full bg-gray-700 rounded-full h-2.5"><div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2.5 rounded-full" style="width: ${p.drep_yes_pct}%"></div>${thresholds.drep ? `<div class="threshold-line bg-yellow-300" style="left: ${thresholds.drep*100}%" title="Threshold: ${(thresholds.drep*100).toFixed(0)}%"></div>` : ''}</div>
+                                </div>
+                                ${spoVoteHTML}
+                            </div>
+                        </div>
+                        <div class="md:border-l md:border-gray-700 md:pl-4 flex-shrink-0 flex flex-row flex-wrap md:flex-col justify-start md:justify-center gap-2">
+                             <button class="summarize-btn gemini-button text-white font-bold py-1 px-3 rounded-md text-sm" data-proposal-id="${p.proposal_id}">✨ AI Summary</button>
+                             <button class="analyze-rationales-btn bg-teal-700 hover:bg-teal-600 text-white font-bold py-1 px-3 rounded-md text-sm" data-proposal-id="${p.proposal_id}">📊 Analyze</button>
+                             <button class="view-votes-btn bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-1 px-3 rounded-md text-sm" data-proposal-id="${p.proposal_id}" data-voter-type="DRep">DRep Votes</button>
+                             ${p.has_spo_votes ? `<button class="view-votes-btn bg-purple-700 hover:bg-purple-600 text-white font-bold py-1 px-3 rounded-md text-sm" data-proposal-id="${p.proposal_id}" data-voter-type="SPO">SPO Votes</button>` : ''}
+                        </div>
                     `;
-                    tableBody.appendChild(row);
+                    list.appendChild(item);
                 });
+                proposalsContainer.appendChild(list);
             }
 
-            // --- FILTERING LOGIC ---
-            function filterData() {
-                const searchTerm = searchInput.value.toLowerCase();
-                const selectedVote = voteFilter.value;
+            function applyProposalFilters() {
+                const filterText = searchInput.value.toLowerCase();
+                const typeFilter = typeFilterSelect.value;
+                const sortValue = sortSelect.value;
+                const thresholdFilter = thresholdFilterSelect.value;
 
-                return originalData.filter(d => {
-                    const matchesSearch = searchTerm === '' ||
-                        (d.ticker && d.ticker.toLowerCase().includes(searchTerm)) ||
-                        (d.pool_id && d.pool_id.toLowerCase().includes(searchTerm)) ||
-                        (d.homepage && d.homepage.toLowerCase().includes(searchTerm));
-
-                    const matchesVote = selectedVote === 'all' || d.vote === selectedVote;
-
-                    return matchesSearch && matchesVote;
+                let filtered = allFetchedProposals
+                    .filter(p => p.title.toLowerCase().includes(filterText))
+                    .filter(p => typeFilter === 'all' || p.type === typeFilter)
+                    .filter(p => {
+                        if (thresholdFilter === 'all') return true;
+                        const thresholds = getThresholds(p.type);
+                        if (!thresholds.drep) return true; // Info actions always pass this filter
+                        const isPassing = (p.drep_yes_pct / 100) >= thresholds.drep;
+                        return thresholdFilter === 'passing' ? isPassing : !isPassing;
+                    });
+                
+                filtered.sort((a, b) => {
+                    if (sortValue === 'drep-yes-pct-asc') return a.drep_yes_pct - b.drep_yes_pct;
+                    return b.drep_yes_pct - a.drep_yes_pct;
                 });
+
+                renderProposals(filtered);
             }
 
-            // --- EVENT LISTENERS ---
-            searchInput.addEventListener('input', renderAll);
-            voteFilter.addEventListener('change', renderAll);
+            // --- DRep Directory Logic ---
+            function renderDReps(dreps) {
+                drepListContainer.innerHTML = '';
+                if (!dreps || dreps.length === 0) {
+                    drepListContainer.innerHTML = `<div class="text-center p-10 bg-gray-800 rounded-lg"><p class="text-lg">No DReps match the current filters.</p></div>`;
+                    return;
+                }
+                const list = document.createElement('div');
+                list.className = 'space-y-4';
+                dreps.forEach(drep => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-800 rounded-lg p-4 flex items-center justify-between';
+                    
+                    let drepNameHTML = '';
+                    let hasMetadata = false;
 
-            // --- INITIAL LOAD ---
-            fetchData();
+                    if (drepsWithMetadata && drepsWithMetadata.has(drep.drep_id)) {
+                        const drepName = drepsWithMetadata.get(drep.drep_id);
+                        if (typeof drepName === 'string' && drepName.trim() !== '') {
+                            drepNameHTML = `<p class="text-md font-bold text-white">${drepName}</p>`;
+                        }
+                        hasMetadata = true;
+                    }
+                    
+                    let votingPowerHTML = '';
+                    if (drepsVotingPower && drepsVotingPower.has(drep.drep_id)) {
+                        const power = drepsVotingPower.get(drep.drep_id);
+                        votingPowerHTML = `<p class="text-sm text-gray-400 mt-1">Voting Power: <span class="font-bold text-white">${power.toLocaleString()} ADA</span></p>`;
+                    }
+
+                    const metadataButton = `<button class="view-drep-metadata-btn font-mono text-sm break-all truncate text-left ${hasMetadata ? 'has-metadata' : 'no-metadata'}" title="${drep.drep_id}" data-drep-id="${drep.drep_id}" ${!hasMetadata ? 'disabled' : ''}>${drep.drep_id || 'Unknown ID'}</button>`;
+
+                    card.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            ${drepNameHTML}
+                            ${metadataButton}
+                            ${votingPowerHTML}
+                        </div>
+                        <div class="flex items-center space-x-4 ml-4 flex-shrink-0">
+                            <button class="view-drep-votes-btn bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg" data-drep-id="${drep.drep_id}">View Votes</button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+                drepListContainer.appendChild(list);
+            }
+            
+            function applyDRepFilters() {
+                const filterText = drepSearchInput.value.toLowerCase();
+                const rationaleFilter = drepRationaleFilter.checked;
+                const sortValue = drepSortSelect.value;
+
+                let filtered = allFetchedDReps;
+
+                if (filterText) {
+                    filtered = filtered.filter(drep => {
+                        const name = drepsWithMetadata?.get(drep.drep_id);
+                        const nameMatch = (typeof name === 'string' && name.toLowerCase().includes(filterText));
+                        const idMatch = drep.drep_id.toLowerCase().includes(filterText);
+                        return idMatch || nameMatch;
+                    });
+                }
+                if (rationaleFilter && drepsWithRationales) {
+                    filtered = filtered.filter(d => drepsWithRationales.has(d.drep_id));
+                }
+
+                // Sort the filtered results
+                filtered.sort((a, b) => {
+                    switch (sortValue) {
+                        case 'power-asc':
+                            return (drepsVotingPower.get(a.drep_id) || 0) - (drepsVotingPower.get(b.drep_id) || 0);
+                        case 'id-asc':
+                            return a.drep_id.localeCompare(b.drep_id);
+                        case 'id-desc':
+                            return b.drep_id.localeCompare(a.drep_id);
+                        case 'power-desc':
+                        default:
+                            return (drepsVotingPower.get(b.drep_id) || 0) - (drepsVotingPower.get(a.drep_id) || 0);
+                    }
+                });
+
+                renderDReps(filtered);
+            }
+            
+            async function fetchAndDisplayDReps() {
+                // Data is pre-loaded, just render it
+                drepMetadataStatus.textContent = `Displaying all ${allFetchedDReps.length} DReps.`;
+                applyDRepFilters();
+            }
+
+            async function buildRationaleCache() {
+                drepsWithRationales = new Set();
+                const label = drepRationaleFilter.nextElementSibling;
+                const originalLabelText = label.textContent;
+                drepRationaleFilter.disabled = true;
+                label.textContent = "Building index...";
+                try {
+                    const proposals = await fetchPaginatedData('proposal_list');
+                    
+                    const votePromises = proposals.map(p =>
+                        fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${p.proposal_id}`))
+                            .then(res => res.ok ? res.json() : [])
+                    );
+
+                    const allVoteSets = await Promise.all(votePromises);
+                    
+                    allVoteSets.forEach(voteSet => {
+                        voteSet.forEach(vote => {
+                            if (vote.meta_url && vote.voter_role === 'DRep') {
+                                drepsWithRationales.add(vote.voter_id);
+                            }
+                        });
+                    });
+                } catch (err) {
+                    console.error("Failed to build rationale cache:", err);
+                    label.textContent = "Index failed";
+                } finally {
+                    drepRationaleFilter.disabled = false;
+                    label.textContent = originalLabelText;
+                }
+            }
+
+            // --- SPO Directory Logic ---
+            function renderSPOStats(stats) {
+                const spoPage = document.getElementById('spo-directory-page');
+                let statsContainer = document.getElementById('spo-stats-container');
+                if (!statsContainer) {
+                    statsContainer = document.createElement('div');
+                    statsContainer.id = 'spo-stats-container';
+                    const searchControls = document.getElementById('spo-search-controls');
+                    spoPage.insertBefore(statsContainer, searchControls);
+                }
+                
+                statsContainer.className = 'grid grid-cols-2 md:grid-cols-4 gap-4 mb-8';
+
+                const formatAda = (value) => {
+                    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B ADA`;
+                    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M ADA`;
+                    if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K ADA`;
+                    return `${value.toFixed(0)} ADA`;
+                };
+
+                statsContainer.innerHTML = `
+                    <div class="bg-gray-800 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Total Pools</p>
+                        <p class="text-2xl font-bold text-white">${stats.totalPools.toLocaleString()}</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Total Voting Power</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.totalVotingPower)}</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Abstain</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.abstainPower)} <span class="text-base font-medium text-gray-400">(${stats.abstainCount})</span></p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">No Confidence</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.noConfidencePower)} <span class="text-base font-medium text-gray-400">(${stats.noConfidenceCount})</span></p>
+                    </div>
+                `;
+            }
+
+            function renderSPOs(spos) {
+                spoListContainer.innerHTML = '';
+                 if (!spos || spos.length === 0) {
+                    spoListContainer.innerHTML = `<div class="text-center p-10 bg-gray-800 rounded-lg"><p class="text-lg">No SPOs match the current filters.</p></div>`;
+                    return;
+                }
+                const list = document.createElement('div');
+                list.className = 'space-y-4';
+                spos.forEach(spo => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-800 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between';
+                    
+                    const votingPower = spo.voting_power_ada ? parseFloat(spo.voting_power_ada).toLocaleString(undefined, { maximumFractionDigits: 2 }) : 'N/A';
+                    const homepageLink = spo.homepage ? `<a href="${spo.homepage}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline text-sm">${spo.homepage}</a>` : `<span class="text-gray-500 text-sm">No homepage</span>`;
+
+                    let delegationTagHTML = '';
+                    const voteStatus = (spo.vote || '').toLowerCase();
+
+                    if (voteStatus.includes('always abstain')) {
+                        delegationTagHTML = `<span class="mt-2 inline-block bg-yellow-800 text-yellow-100 text-xs font-semibold px-2.5 py-0.5 rounded-full">Delegated: Auto Abstain</span>`;
+                    } else if (voteStatus.includes('always no confidence')) {
+                        delegationTagHTML = `<span class="mt-2 inline-block bg-red-800 text-red-100 text-xs font-semibold px-2.5 py-0.5 rounded-full">Delegated: No Confidence</span>`;
+                    }
+
+                    card.innerHTML = `
+                        <div class="flex-1 min-w-0 mb-4 sm:mb-0">
+                            <p class="text-lg font-bold text-white">[${spo.ticker || 'N/A'}]</p>
+                            <p class="font-mono text-sm text-gray-400 break-all">${spo.pool_id || 'Unknown ID'}</p>
+                            ${homepageLink}
+                            ${delegationTagHTML}
+                        </div>
+                        <div class="flex-shrink-0 sm:ml-4 text-left sm:text-right">
+                            <p class="text-sm text-gray-400">Voting Power</p>
+                            <p class="text-xl font-bold text-white">${votingPower} ADA</p>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+                spoListContainer.appendChild(list);
+            }
+
+            function applySPOFilters() {
+                const filterText = spoSearchInput.value.toLowerCase();
+                const voteFilter = spoVoteFilter.value;
+                let filtered = allFetchedSPOs;
+
+                // Apply vote filter first
+                if (voteFilter !== 'all') {
+                    filtered = filtered.filter(spo => {
+                        const voteStatus = (spo.vote || '').toLowerCase();
+                        if (voteFilter === 'abstain') {
+                            return voteStatus.includes('always abstain');
+                        }
+                        if (voteFilter === 'no-confidence') {
+                            return voteStatus.includes('always no confidence');
+                        }
+                        if (voteFilter === 'not-delegated') {
+                            return !voteStatus.includes('always abstain') && !voteStatus.includes('always no confidence');
+                        }
+                        return true;
+                    });
+                }
+
+                // Then apply text search
+                if (filterText) {
+                    filtered = filtered.filter(spo => 
+                        (spo.ticker && spo.ticker.toLowerCase().includes(filterText)) ||
+                        (spo.pool_id && spo.pool_id.toLowerCase().includes(filterText))
+                    );
+                }
+                renderSPOs(filtered);
+            }
+
+            async function fetchAndDisplaySPOs() {
+                showLoading(spoListContainer);
+                document.getElementById('spo-directory-page').querySelector('#spo-stats-container')?.remove();
+                setControlsDisabled(true);
+                try {
+                    const totalPools = allFetchedSPOs.length;
+                    const totalVotingPower = allFetchedSPOs.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
+                    
+                    const abstainPools = allFetchedSPOs.filter(spo => (spo.vote || '').toLowerCase().includes('always abstain'));
+                    const abstainPower = abstainPools.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
+                    
+                    const noConfidencePools = allFetchedSPOs.filter(spo => (spo.vote || '').toLowerCase().includes('always no confidence'));
+                    const noConfidencePower = noConfidencePools.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
+
+                    renderSPOStats({
+                        totalPools,
+                        totalVotingPower,
+                        abstainPower,
+                        abstainCount: abstainPools.length,
+                        noConfidencePower,
+                        noConfidenceCount: noConfidencePools.length
+                    });
+                    applySPOFilters();
+                } catch (err) {
+                    displayError(spoListContainer, err.message);
+                } finally {
+                    setControlsDisabled(false);
+                }
+            }
+            
+            // --- Modal Logic (Shared) ---
+            function renderModalVotes() {
+                modalContent.innerHTML = ''; // Clear everything first
+                const showRationale = rationaleFilterCheckbox.checked;
+                let votes, isHistory;
+
+                if (currentModalVoterType === 'DRepHistory') {
+                    votes = showRationale ? voterVoteHistory.filter(v => v.meta_url) : voterVoteHistory;
+                    isHistory = true;
+                } else {
+                    votes = showRationale ? currentModalVotes.filter(v => v.meta_url) : currentModalVotes;
+                    isHistory = false;
+                }
+                
+                const colors = { Yes: 'text-green-400', No: 'text-red-400', Abstain: 'text-yellow-400' };
+
+                if (votes.length === 0) {
+                    modalContent.innerHTML = `<p class="text-gray-400 text-center">No explicit votes found for this filter.</p>`;
+                    return;
+                }
+
+                let headerVoter = 'Voter';
+                let headerExtra = 'Vote';
+                if (isHistory) {
+                    headerVoter = 'Proposal ID';
+                    headerExtra = 'Rationale';
+                } else if (currentModalVoterType === 'SPO') {
+                    headerVoter = 'SPO';
+                    headerExtra = 'Voting Power';
+                } else if (currentModalVoterType === 'DRep') {
+                    headerVoter = 'DRep';
+                    headerExtra = 'Rationale';
+                }
+                
+                const voteListContainer = document.createElement('div');
+                let html = `<div class="grid grid-cols-4 gap-4 text-left font-bold text-gray-400 pb-2 border-b border-gray-600"><span class="col-span-2">${headerVoter}</span><span class="text-center">${headerExtra}</span><span class="text-right">Vote</span></div>`;
+                
+                html += votes.map(v => {
+                    const id = isHistory ? v.proposal_id : v.voter_id;
+                    let explorerLink;
+                    if (isHistory) explorerLink = `${GOV_TOOLS_URL}/governance_actions/${id}`;
+                    else if (currentModalVoterType === 'DRep') explorerLink = `${GOV_TOOLS_URL}/drep_directory/${id}`;
+                    else if (currentModalVoterType === 'SPO') explorerLink = `https://cexplorer.io/pool/${id}`;
+
+                    let voterInfoHTML = `<a href="${explorerLink}" target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-cyan-400 hover:underline break-all pr-4">${id}</a>`;
+                    let extraInfoHTML = '';
+
+                    if (!isHistory && currentModalVoterType === 'SPO' && allFetchedSPOs) {
+                        const spo = allFetchedSPOs.find(s => s.pool_id === id);
+                        if (spo) {
+                             voterInfoHTML = `<div><p class="text-sm font-bold text-white">[${spo.ticker || 'N/A'}]</p>${voterInfoHTML}</div>`;
+                             extraInfoHTML = `<span class="font-mono text-sm">${parseFloat(spo.voting_power_ada || 0).toLocaleString()} ADA</span>`;
+                        }
+                    } else if (!isHistory && currentModalVoterType === 'DRep' && drepsWithMetadata) {
+                        const drepName = drepsWithMetadata.get(id);
+                        if (typeof drepName === 'string' && drepName.trim() !== '') {
+                            voterInfoHTML = `<div><p class="text-sm font-bold text-white">${drepName}</p>${voterInfoHTML}</div>`;
+                        }
+                        extraInfoHTML = v.meta_url ? `<button class="view-rationale-btn text-cyan-400 hover:underline" data-meta-url="${v.meta_url}">📄 View</button>` : `<span class="text-gray-600">-</span>`;
+                    } else if (isHistory) {
+                         extraInfoHTML = v.meta_url ? `<button class="view-rationale-btn text-cyan-400 hover:underline" data-meta-url="${v.meta_url}">📄 View</button>` : `<span class="text-gray-600">-</span>`;
+                    }
+
+                    return `<div class="grid grid-cols-4 gap-4 items-center py-2 border-b border-gray-700 last:border-b-0"><div class="col-span-2">${voterInfoHTML}</div><div class="text-center">${extraInfoHTML}</div><span class="font-bold text-sm text-right ${colors[v.vote] || 'text-gray-400'}">${v.vote}</span></div>`;
+                }).join('');
+                
+                voteListContainer.innerHTML = html;
+                modalContent.appendChild(voteListContainer);
+            }
+
+            async function fetchProposalVotes(proposalId, voterType) {
+                votesModal.classList.remove('hidden');
+                modalContent.innerHTML = `<div class="flex justify-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg></div>`;
+                currentModalVoterType = voterType;
+                modalTitle.textContent = `${voterType} Votes`;
+                rationaleFilterCheckbox.checked = false;
+                rationaleFilterContainer.style.display = (voterType === 'SPO') ? 'none' : 'flex';
+
+
+                try {
+                    const res = await fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${proposalId}`));
+                    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                    const allVotes = await res.json();
+                    currentModalVotes = allVotes.filter(v => v.voter_role === voterType);
+                    modalTitle.textContent = `${voterType} Votes (${currentModalVotes.length} explicit votes)`;
+                    
+                    renderModalVotes();
+
+                } catch (err) {
+                    modalContent.innerHTML = `<p class="text-red-400 text-center">${err.message}</p>`;
+                }
+            }
+
+            async function fetchDRepVotes(drepId) {
+                votesModal.classList.remove('hidden');
+                modalContent.innerHTML = `<div class="flex justify-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg></div>`;
+                currentModalVoterType = 'DRepHistory';
+                modalTitle.textContent = `Vote History for ${drepId.substring(0, 20)}...`;
+                rationaleFilterCheckbox.checked = false;
+                rationaleFilterContainer.style.display = 'flex';
+                try {
+                    const res = await fetch(proxyUrl(`${API_BASE}/drep_votes?_drep_id=${drepId}`));
+                    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                    voterVoteHistory = await res.json();
+                    modalTitle.textContent = `Vote History for ${drepId.substring(0, 20)}... (${voterVoteHistory.length} total)`;
+                    renderModalVotes();
+                } catch (err) {
+                    modalContent.innerHTML = `<p class="text-red-400 text-center">${err.message}</p>`;
+                }
+            }
+
+            async function fetchAndShowRationale(metaUrl, returnObject = false) {
+                if (!returnObject) {
+                    rationaleModal.classList.remove('hidden');
+                    rationaleModalContent.innerHTML = `<div class="flex justify-center items-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg><p class="ml-4">Fetching rationale...</p></div>`;
+                }
+                
+                try {
+                    let url;
+                    if (metaUrl.startsWith('ipfs://')) {
+                        url = `https://ipfs.io/ipfs/${metaUrl.substring(7)}`;
+                    } else if (metaUrl.includes('/ipfs/')) {
+                        const cid = metaUrl.split('/ipfs/')[1];
+                        url = `https://ipfs.io/ipfs/${cid}`;
+                    } else {
+                        url = metaUrl;
+                    }
+
+                    const res = await fetch(proxyUrl(url));
+                    if (!res.ok) throw new Error(`Failed to fetch rationale. Status: ${res.status}`);
+                    const data = await res.json();
+                    const comment = data?.body?.comment;
+
+                    if (returnObject) {
+                        return { text: comment || null, url: metaUrl };
+                    }
+
+                    if (comment) {
+                        rationaleModalContent.innerHTML = markdownConverter.makeHtml(comment);
+                    } else {
+                        throw new Error("Rationale 'comment' field not found in metadata.");
+                    }
+                } catch (err) {
+                    if (returnObject) return null;
+                    rationaleModalContent.innerHTML = `<p class="text-red-400 text-center">${err.message}</p>`;
+                }
+            }
+
+            async function fetchAndShowDRepMetadata(drepId) {
+                drepMetadataModal.classList.remove('hidden');
+                drepMetadataModalContent.innerHTML = `<div class="flex justify-center items-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg><p class="ml-4">Fetching metadata...</p></div>`;
+                drepMetadataModalTitle.textContent = `DRep Metadata`;
+
+                try {
+                    const res = await fetch(proxyUrl(`${API_BASE}/drep_metadata`), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ _drep_ids: [drepId] })
+                    });
+
+                    if (!res.ok) {
+                        throw new Error(`Koios API Error: ${res.status}`);
+                    }
+
+                    const dataArr = await res.json();
+                    if (!dataArr || dataArr.length === 0 || !dataArr[0].meta_json) {
+                        throw new Error("No metadata found for this DRep or metadata is empty.");
+                    }
+                    
+                    const metadata = dataArr[0].meta_json;
+                    const { givenName, bio, introduction, motivation, qualifications, contact, website, socialMedia } = metadata.body || {};
+                    const drepName = givenName || metadata.drepName; // Fallback for different structures
+                    
+                    let html = '<div class="space-y-6 ai-summary-content">';
+
+                    if (drepName) {
+                        html += `<div><h4 class="text-lg font-bold text-cyan-300 mb-2">Name</h4><p class="text-xl">${drepName}</p></div>`;
+                    }
+
+                    if (contact || website || (socialMedia && socialMedia.length > 0)) {
+                        html += `<div><h4 class="text-lg font-bold text-cyan-300 mb-2">Contact & Links</h4><div class="flex flex-wrap gap-4 items-center">`;
+                        if (contact) html += `<a href="mailto:${contact}" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm">${contact}</a>`;
+                        if (website) html += `<a href="${website}" target="_blank" rel="noopener noreferrer" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm">${website.replace(/https?:\/\//, '')}</a>`;
+                        if (socialMedia) {
+                            socialMedia.forEach(link => {
+                                html += `<a href="${link}" target="_blank" rel="noopener noreferrer" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm">${link.replace(/https?:\/\//, '').split('/')[0]}</a>`;
+                            });
+                        }
+                        html += `</div></div>`;
+                    }
+
+                    const textFields = { Bio: bio, Introduction: introduction, Motivation: motivation, Qualifications: qualifications };
+                    for (const [key, value] of Object.entries(textFields)) {
+                        if (value) {
+                            html += `<div><h4 class="text-lg font-bold text-cyan-300 mb-2">${key}</h4>${markdownConverter.makeHtml(value)}</div>`;
+                        }
+                    }
+                    
+                    html += `<div><h4 class="text-lg font-bold text-cyan-300 mt-8 mb-2">Full Metadata (JSON)</h4><pre class="bg-gray-900 p-4 rounded-lg text-sm text-gray-300 overflow-x-auto"><code>${JSON.stringify(metadata, null, 2)}</code></pre></div>`;
+
+                    html += '</div>';
+                    drepMetadataModalContent.innerHTML = html;
+                    drepMetadataModalTitle.textContent = `DRep Metadata: ${drepName || 'Details'}`;
+
+                } catch (err) {
+                    drepMetadataModalContent.innerHTML = `<p class="text-red-400 text-center">${err.message}</p>`;
+                }
+            }
+
+
+            // --- AI Logic ---
+            async function callGeminiAPI(prompt) {
+                const apiUrl = "https://gist-updater-script-2802d5k1s-thomas-projects-bab4a797.vercel.app/api/gemini";
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("API Proxy Error Body:", errorBody);
+                    throw new Error(`API Proxy Error: ${response.status}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts[0].text) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Unexpected API Response:", result);
+                    throw new Error("No content generated by the AI, or response was malformed.");
+                }
+            }
+
+            async function fetchAndSummarizeProposal(proposalId) {
+                aiSummaryModal.classList.remove('hidden');
+                aiModalContent.innerHTML = `<div class="flex justify-center items-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg><p class="ml-4">Generating summary...</p></div>`;
+                
+                try {
+                    const proposal = allFetchedProposals.find(p => p.proposal_id === proposalId);
+                    if (!proposal) throw new Error("Could not find proposal details.");
+                    aiModalTitle.textContent = `✨ Summary for: ${proposal.title}`;
+                    
+                    const proposalText = `Title: ${proposal.title}\n\nAbstract: ${proposal.abstract}\n\nMotivation: ${proposal.motivation}\n\nRationale: ${proposal.rationale}`;
+                    if (proposalText.trim().length < 50) {
+                        aiModalContent.innerHTML = `<p class="text-yellow-400">Not enough metadata to generate a summary.</p>`;
+                        return;
+                    }
+                    const prompt = `You are an expert AI assistant for Cardano DReps. Your task is to provide a concise, neutral summary of a governance proposal, focusing on the essential information a DRep needs for a quick assessment. Keep it brief. Structure your response in Markdown with these sections:
+- **Objective:** State the primary goal in one sentence.
+- **Proposed Change:** Clearly describe the specific action. For a parameter change, state old/new values. For a treasury withdrawal, state amount/recipient.
+- **Justification:** Briefly summarize the core reason for this change.
+Here is the proposal text:\n---\n${proposalText}\n---`;
+                    
+                    const summary = await callGeminiAPI(prompt);
+                    aiModalContent.innerHTML = markdownConverter.makeHtml(summary);
+
+                } catch (err) {
+                    aiModalContent.innerHTML = `<p class="text-red-400">Failed to generate summary: ${err.message}</p>`;
+                }
+            }
+
+            async function fetchAndAnalyzeRationales(proposalId) {
+                sentimentModal.classList.remove('hidden');
+                sentimentModalContent.innerHTML = `<div class="flex justify-center items-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg><p class="ml-4">Fetching votes and analyzing...</p></div>`;
+
+                try {
+                    const proposal = allFetchedProposals.find(p => p.proposal_id === proposalId);
+                    if (!proposal) throw new Error("Could not find proposal details.");
+                    sentimentModalTitle.textContent = `📊 Rationale Analysis for: ${proposal.title}`;
+
+                    // Fetch all votes (DRep and SPO)
+                    const votesRes = await fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${proposalId}`));
+                    if (!votesRes.ok) throw new Error("Could not fetch votes for analysis.");
+                    const allVotes = await votesRes.json();
+                    
+                    // Process DRep Rationales
+                    const drepVotes = allVotes.filter(v => v.voter_role === 'DRep');
+                    const rationalePromises = drepVotes
+                        .filter(v => v.meta_url)
+                        .map(v => fetchAndShowRationale(v.meta_url, true)); 
+                    const rationales = await Promise.all(rationalePromises);
+                    const validRationales = rationales.filter(r => r && r.text);
+
+                    // SPO Vote Power is already on the proposal object
+                    const spoVotePower = {
+                        Yes: proposal.spo_yes_power,
+                        No: proposal.spo_no_power,
+                        Abstain: proposal.spo_abstain_power
+                    };
+
+                    // Generate AI Report
+                    const prompt = `You are an expert AI assistant for Cardano governance. Your task is to analyze a collection of DRep (Delegated Representative) rationales for a specific governance proposal and generate a structured report in Markdown format.
+
+**Proposal Title:** "${proposal.title}"
+
+**Provided Rationales:**
+${validRationales.length > 0 ? validRationales.map((r, i) => `Rationale ${i + 1} (Source URL: ${r.url}):\n---\n${r.text}\n---\n`).join('\n') : "No rationales were provided."}
+
+---
+
+**Instructions:**
+
+Based *only* on the rationales provided above, generate a report with the following sections in this exact order:
+
+**1. Key Arguments in Favor**
+Under an \`### Key Arguments in Favor\` heading, create a bulleted list summarizing the main points supporting the proposal. Cite the rationales that support each point using bracketed numbers, like [1] or [2, 5].
+
+**2. Key Arguments Against / Concerns**
+Under an \`### Key Arguments Against / Concerns\` heading, create a bulleted list summarizing the main concerns, criticisms, or arguments against the proposal. Cite the rationales, like [3, 4].
+
+**3. Key DRep Disagreements & Questions**
+Under an \`### Key DRep Disagreements & Questions\` heading, create a single bulleted list summarizing specific points that DReps are questioning, disagreeing with, or suggesting alternatives for. Cite the rationales for each point.
+
+**4. Sources**
+Under an \`### Sources\` heading, create a numbered list of all the source URLs provided in the "Provided Rationales" section. The list item number must correspond to the citation number used in the sections above. Each source must be a clickable Markdown link. For example: "1. [Source 1](URL)".
+
+Do not add any other sections or commentary.`;
+
+                    const report = await callGeminiAPI(prompt);
+                    renderRationaleReport(proposal, report, validRationales, spoVotePower);
+
+                } catch (err) {
+                    sentimentModalContent.innerHTML = `<p class="text-red-400">Failed to analyze rationales: ${err.message}</p>`;
+                }
+            }
+            
+            function renderRationaleReport(proposal, reportMarkdown, validRationales, spoVotePower) {
+                sentimentModalContent.innerHTML = ''; // Clear loading
+                analysisCharts.forEach(chart => chart.destroy());
+                analysisCharts = [];
+
+                const chartsOuterContainer = document.createElement('div');
+                chartsOuterContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-8 mb-8';
+                sentimentModalContent.appendChild(chartsOuterContainer);
+
+                // DRep Chart Container
+                const drepChartContainer = document.createElement('div');
+                drepChartContainer.className = 'w-full';
+                const drepCanvas = document.createElement('canvas');
+                drepChartContainer.appendChild(drepCanvas);
+                chartsOuterContainer.appendChild(drepChartContainer);
+
+                // SPO Chart Container
+                const spoChartContainer = document.createElement('div');
+                spoChartContainer.className = 'w-full';
+                const spoCanvas = document.createElement('canvas');
+                spoChartContainer.appendChild(spoCanvas);
+                chartsOuterContainer.appendChild(spoChartContainer);
+                
+                // DRep Chart
+                const drepChart = new Chart(drepCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Yes', 'No', 'Abstain'],
+                        datasets: [{
+                            data: [proposal.drep_yes_votes_cast, proposal.drep_no_votes_cast, proposal.drep_abstain_votes_cast],
+                            backgroundColor: ['#22c55e', '#ef4444', '#f59e0b'],
+                            borderColor: '#1f2937',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top', labels: { color: '#d1d5db' }},
+                            title: { display: true, text: 'DRep Vote Distribution (Count)', color: '#d1d5db', font: { size: 16 }}
+                        }
+                    }
+                });
+                analysisCharts.push(drepChart);
+
+                // SPO Chart
+                const spoChart = new Chart(spoCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Yes', 'No', 'Abstain'],
+                        datasets: [{
+                            data: [spoVotePower.Yes, spoVotePower.No, spoVotePower.Abstain],
+                            backgroundColor: ['#22c55e', '#ef4444', '#f59e0b'],
+                            borderColor: '#1f2937',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top', labels: { color: '#d1d5db' }},
+                            title: { display: true, text: 'SPO Vote Power Distribution (ADA)', color: '#d1d5db', font: { size: 16 }},
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) { label += ': '; }
+                                        if (context.parsed !== null) {
+                                            label += new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(context.parsed) + ' ADA';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                analysisCharts.push(spoChart);
+
+                const reportContainer = document.createElement('div');
+                reportContainer.className = 'ai-summary-content';
+                const fullHtml = markdownConverter.makeHtml(reportMarkdown);
+                const parts = fullHtml.split(/<h3.*?>/);
+                const headers = fullHtml.match(/<h3.*?>.*?<\/h3>/g) || [];
+                let contentMap = {};
+                headers.forEach((header, index) => {
+                    const cleanHeader = header.replace(/<[^>]*>/g, '');
+                    contentMap[cleanHeader] = parts[index + 1] || '';
+                });
+
+                const favorArgs = contentMap['Key Arguments in Favor'] || '<p>No arguments in favor were identified.</p>';
+                const againstArgs = contentMap['Key Arguments Against / Concerns'] || '<p>No arguments against were identified.</p>';
+                const disagreements = contentMap['Key DRep Disagreements & Questions'] || '';
+                const sources = contentMap['Sources'] || '';
+
+                let finalHtml = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div>
+                            <h3 class="text-green-400 font-bold mb-4">Key Arguments in Favor</h3>
+                            ${favorArgs}
+                        </div>
+                        <div>
+                            <h3 class="text-red-400 font-bold mb-4">Key Arguments Against / Concerns</h3>
+                            ${againstArgs}
+                        </div>
+                    </div>
+                `;
+
+                if (disagreements.trim()) {
+                    finalHtml += `<hr class="my-6 border-gray-600">
+                                    <h3 class="font-bold">Key DRep Disagreements & Questions</h3>
+                                    ${disagreements}`;
+                }
+
+                if (sources.trim()) {
+                     finalHtml += `<hr class="my-6 border-gray-600">
+                                     <h3 class="font-bold">Sources</h3>
+                                     ${sources}`;
+                }
+                
+                reportContainer.innerHTML = finalHtml;
+                reportContainer.innerHTML = reportContainer.innerHTML.replace(/\[([\d,\s]+)\]/g, (match, p1) => {
+                    const numbers = p1.split(',').map(n => parseInt(n.trim()));
+                    const firstSource = validRationales[numbers[0] - 1];
+                    if (!firstSource) return match;
+                    let finalUrl = firstSource.url;
+                    if (finalUrl.startsWith('ipfs://')) {
+                        finalUrl = `https://ipfs.io/ipfs/${finalUrl.substring(7)}`;
+                    } else if (finalUrl.includes('/ipfs/')) {
+                        const cid = finalUrl.split('/ipfs/')[1];
+                        finalUrl = `https://ipfs.io/ipfs/${cid}`;
+                    }
+                    return `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer" class="citation">${match}</a>`;
+                });
+
+                sentimentModalContent.appendChild(reportContainer);
+            }
+
+            // --- App Initialization ---
+            async function initializeApp() {
+                try {
+                    setControlsDisabled(true);
+                    
+                    updateLoadingStatus('Fetching initial data...');
+                    const initialData = await fetchAllInitialData();
+                    
+                    updateLoadingStatus('Processing governance proposals...');
+                    await fetchProposalsData(initialData);
+                    
+                    updateLoadingStatus('Finalizing...');
+                    
+                    lastUpdatedElement.textContent = new Date().toLocaleString();
+                    loadingOverlay.style.display = 'none';
+                    mainContent.classList.remove('opacity-0');
+                    setControlsDisabled(false);
+                    
+                    showPage('proposals');
+
+                } catch (err) {
+                    loadingStatus.innerHTML = `<span class="text-red-400">Failed to load data: ${err.message}</span>`;
+                }
+            }
+
+
+            // --- Event Listeners ---
+            navProposals.addEventListener('click', () => showPage('proposals'));
+            navDRepDirectory.addEventListener('click', () => showPage('dreps'));
+            navSpoDirectory.addEventListener('click', () => showPage('spos'));
+            
+            // Proposal page listeners
+            [searchInput, sortSelect, typeFilterSelect, thresholdFilterSelect].forEach(el => el.addEventListener('change', applyProposalFilters));
+            searchInput.addEventListener('input', applyProposalFilters);
+            
+            viewGridBtn.addEventListener('click', () => {
+                currentProposalView = 'grid';
+                viewGridBtn.setAttribute('aria-selected', 'true');
+                viewListBtn.setAttribute('aria-selected', 'false');
+                applyProposalFilters();
+            });
+
+            viewListBtn.addEventListener('click', () => {
+                currentProposalView = 'list';
+                viewListBtn.setAttribute('aria-selected', 'true');
+                viewGridBtn.setAttribute('aria-selected', 'false');
+                applyProposalFilters();
+            });
+
+            proposalsContainer.addEventListener('click', (e) => {
+                const viewBtn = e.target.closest('.view-votes-btn');
+                const summaryBtn = e.target.closest('.summarize-btn');
+                const rationalesBtn = e.target.closest('.analyze-rationales-btn');
+
+                if (viewBtn) fetchProposalVotes(viewBtn.dataset.proposalId, viewBtn.dataset.voterType);
+                if (summaryBtn) fetchAndSummarizeProposal(summaryBtn.dataset.proposalId);
+                if (rationalesBtn) fetchAndAnalyzeRationales(rationalesBtn.dataset.proposalId);
+            });
+
+            // DRep page listeners
+            drepSearchInput.addEventListener('input', applyDRepFilters);
+            drepSortSelect.addEventListener('change', applyDRepFilters);
+            drepRationaleFilter.addEventListener('change', () => {
+                if (drepRationaleFilter.checked && drepsWithRationales === null) {
+                    buildRationaleCache().then(() => applyDRepFilters());
+                } else {
+                    applyDRepFilters();
+                }
+            });
+            drepListContainer.addEventListener('click', (e) => {
+                const viewBtn = e.target.closest('.view-drep-votes-btn');
+                const metadataBtn = e.target.closest('.view-drep-metadata-btn');
+                if (viewBtn) fetchDRepVotes(viewBtn.dataset.drepId);
+                if (metadataBtn && !metadataBtn.disabled) fetchAndShowDRepMetadata(metadataBtn.dataset.drepId);
+            });
+            
+            // SPO page listener
+            spoSearchInput.addEventListener('input', applySPOFilters);
+            spoVoteFilter.addEventListener('change', applySPOFilters);
+
+            // Modal listeners
+            rationaleFilterCheckbox.addEventListener('change', renderModalVotes);
+            modalContent.addEventListener('click', (e) => {
+                const rationaleBtn = e.target.closest('.view-rationale-btn');
+                if (rationaleBtn) {
+                    fetchAndShowRationale(rationaleBtn.dataset.metaUrl);
+                }
+            });
+            modalCloseBtn.addEventListener('click', () => votesModal.classList.add('hidden'));
+            votesModal.addEventListener('click', (e) => { if (e.target === votesModal) votesModal.classList.add('hidden'); });
+            aiModalCloseBtn.addEventListener('click', () => aiSummaryModal.classList.add('hidden'));
+            aiSummaryModal.addEventListener('click', (e) => { if (e.target === aiSummaryModal) aiSummaryModal.classList.add('hidden'); });
+            rationaleModalCloseBtn.addEventListener('click', () => rationaleModal.classList.add('hidden'));
+            rationaleModal.addEventListener('click', (e) => { if (e.target === rationaleModal) rationaleModal.classList.add('hidden'); });
+            sentimentModalCloseBtn.addEventListener('click', () => {
+                sentimentModal.classList.add('hidden');
+                analysisCharts.forEach(chart => chart.destroy());
+                analysisCharts = [];
+            });
+            sentimentModal.addEventListener('click', (e) => { 
+                if (e.target === sentimentModal) {
+                    sentimentModal.classList.add('hidden');
+                    analysisCharts.forEach(chart => chart.destroy());
+                    analysisCharts = [];
+                }
+            });
+            drepProfileModalCloseBtn.addEventListener('click', () => drepProfileModal.classList.add('hidden'));
+            drepProfileModal.addEventListener('click', (e) => { if (e.target === drepProfileModal) drepProfileModal.classList.add('hidden'); });
+            drepMetadataModalCloseBtn.addEventListener('click', () => drepMetadataModal.classList.add('hidden'));
+            drepMetadataModal.addEventListener('click', (e) => { if (e.target === drepMetadataModal) drepMetadataModal.classList.add('hidden'); });
+
+
+            // --- Initial Load ---
+            initializeApp();
         });
     </script>
-
 </body>
 </html>
