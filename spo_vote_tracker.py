@@ -10,10 +10,10 @@ import json
 import logging
 
 # --- Configuration -----------------------------------------------------------
-# This script uses dedicated explorer APIs to find direct SPO votes.
+# This script now uses the Maestro API for governance data, which requires an API key.
 CONFIG = {
     "KOIOS_BASE_URL": "https://api.koios.rest/api/v1",
-    "CEXPLORER_BASE_URL": "https://api.cexplorer.io/api/v1",
+    "MAESTRO_BASE_URL": "https://mainnet.gomaestro-api.org/v1",
     "HTTP_TIMEOUT": 120,
     "API_SLEEP_INTERVAL": 0.1,
     "KOIOS_POOL_INFO_BATCH_SIZE": 80,
@@ -31,12 +31,8 @@ logging.basicConfig(
 )
 
 # --- Helper Functions --------------------------------------------------------
-def api_get_request(url):
-    """A reusable function for making GET requests with a browser-like User-Agent."""
-    # Add a User-Agent header to prevent 403 Forbidden errors from the API.
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+def api_get_request(url, headers=None):
+    """A reusable function for making GET requests."""
     try:
         response = requests.get(url, headers=headers, timeout=CONFIG["HTTP_TIMEOUT"])
         response.raise_for_status()
@@ -63,9 +59,7 @@ def extract_homepage(parsed_meta):
 
 # --- Data Fetching Logic -----------------------------------------------------
 def fetch_all_pool_details():
-    """
-    Fetches a master list of all stake pools and their details from Koios.
-    """
+    """Fetches a master list of all stake pools and their details from Koios."""
     logging.info("Fetching master list of all stake pools from Koios...")
     pool_list_data = api_get_request(f"{CONFIG['KOIOS_BASE_URL']}/pool_list")
     if not pool_list_data:
@@ -102,31 +96,34 @@ def fetch_all_pool_details():
     logging.info(f"Successfully fetched details for {len(all_pools)} pools.")
     return all_pools
 
-def fetch_active_spo_governance_actions():
-    """Fetches governance proposals where SPOs can vote from Cexplorer."""
-    logging.info("Fetching active governance actions from Cexplorer...")
-    data = api_get_request(f"{CONFIG['CEXPLORER_BASE_URL']}/governance/action/proposals")
-    if data and 'data' in data:
-        active_proposals = [p for p in data['data'] if p.get('status') == 'Voting']
+def fetch_active_governance_actions(maestro_api_key):
+    """Fetches active governance proposals from Maestro."""
+    logging.info("Fetching active governance actions from Maestro...")
+    headers = {'api-key': maestro_api_key}
+    data = api_get_request(f"{CONFIG['MAESTRO_BASE_URL']}/governance/proposals", headers=headers)
+    if data:
+        # Maestro API returns proposals in various states, filter for 'voting'
+        active_proposals = [p for p in data if p.get('state') == 'voting']
         logging.info(f"Found {len(active_proposals)} active governance actions.")
         return active_proposals
     logging.warning("Could not find any active governance actions.")
     return []
 
-def fetch_spo_votes_for_action(action_tx_hash):
-    """Fetches SPO votes for a specific governance action."""
+def fetch_spo_votes_for_action(action_tx_hash, action_index, maestro_api_key):
+    """Fetches SPO votes for a specific governance action from Maestro."""
     logging.info(f"Fetching SPO votes for action tx {action_tx_hash[:12]}...")
-    url = f"{CONFIG['CEXPLORER_BASE_URL']}/governance/action/votes/{action_tx_hash}"
-    data = api_get_request(url)
+    headers = {'api-key': maestro_api_key}
+    url = f"{CONFIG['MAESTRO_BASE_URL']}/governance/proposals/{action_tx_hash}/{action_index}/votes"
+    data = api_get_request(url, headers=headers)
     spo_votes = {}
-    if data and 'data' in data:
-        for vote in data['data']:
-            if vote.get('voterType') == 'SPO' and vote.get('poolId'):
-                spo_votes[vote['poolId']] = vote['vote'].capitalize()
+    if data:
+        for vote in data:
+            if vote.get('voter_type') == 'stake_pool_key_hash' and vote.get('stake_pool'):
+                spo_votes[vote['stake_pool']] = vote['vote'].capitalize()
     return spo_votes
 
 # --- Data Processing and Gist Update -----------------------------------------
-def generate_and_publish_report(all_pools, active_actions):
+def generate_and_publish_report(all_pools, active_actions, maestro_api_key):
     """Generates the final CSV report and updates the Gist."""
     report_rows = []
     
@@ -138,9 +135,11 @@ def generate_and_publish_report(all_pools, active_actions):
         })
     else:
         for action in active_actions:
-            action_tx_hash = action['txHash']
-            action_title = action.get('title', 'Untitled Action')
-            spo_votes_for_action = fetch_spo_votes_for_action(action_tx_hash)
+            action_tx_hash = action['tx_hash']
+            action_index = action['index']
+            # Maestro doesn't provide a human-readable title, so we use the tx hash
+            action_title = f"Proposal ({action_tx_hash[:10]}...)"
+            spo_votes_for_action = fetch_spo_votes_for_action(action_tx_hash, action_index, maestro_api_key)
             
             for pool_id, pool_info in all_pools.items():
                 vote = spo_votes_for_action.get(pool_id, "Did Not Vote")
@@ -202,12 +201,17 @@ def update_github_gist(file_path):
 # --- Main Execution ----------------------------------------------------------
 def main():
     """Main script execution flow."""
+    maestro_api_key = os.getenv('MAESTRO_API_KEY')
+    if not maestro_api_key:
+        logging.error("MAESTRO_API_KEY environment variable not set. Exiting.")
+        return
+
     all_pools = fetch_all_pool_details()
     if not all_pools:
         return
         
-    active_actions = fetch_active_spo_governance_actions()
-    generate_and_publish_report(all_pools, active_actions)
+    active_actions = fetch_active_governance_actions(maestro_api_key)
+    generate_and_publish_report(all_pools, active_actions, maestro_api_key)
     
     logging.info("Script finished.")
 
