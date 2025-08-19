@@ -18,9 +18,12 @@ jobs:
 
     # This section lists the individual steps that make up the job.
     steps:
-      # Step 1: Checks out your repository's code onto the runner, so the script can be accessed.
+      # Step 1: Checks out your repository's code onto the runner.
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          # This forces the runner to perform a clean checkout, preventing caching issues.
+          clean: true
 
       # Step 2: Sets up the specified version of Python.
       - name: Set up Python 3.9
