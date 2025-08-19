@@ -6,7 +6,7 @@ import time
 # --- Configuration ---
 # Get Gist ID and GitHub Token from environment variables (set by GitHub Actions)
 GIST_ID = os.environ.get("DREP_GIST_ID")
-GIST_TOKEN = os.environ.get("GIST_TOKEN")
+GIST_TOKEN = os.environ.get("GIST_UPDATE_TOKEN") # Using your existing secret name
 GIST_FILENAME = "drep_directory.json"
 
 # Koios API base URL
@@ -74,7 +74,7 @@ def update_gist(gist_id, filename, content):
     Updates a specific file within a GitHub Gist.
     """
     if not gist_id or not GIST_TOKEN:
-        print("DREP_GIST_ID or GIST_TOKEN not set. Skipping Gist update.")
+        print("DREP_GIST_ID or GIST_UPDATE_TOKEN not set. Skipping Gist update.")
         return False
         
     print(f"Attempting to update Gist {gist_id}...")
