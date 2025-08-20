@@ -11,11 +11,14 @@
     <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0a0e1a; /* Darker, sleek background */
+        }
+        .font-viking {
+            font-family: 'MedievalSharp', cursive;
         }
         /* Custom scrollbar for a more integrated look */
         ::-webkit-scrollbar {
@@ -194,7 +197,7 @@
         <header class="relative text-center mb-8 pb-4">
             <div class="flex items-center justify-center gap-4">
                 <img src="munin.png" alt="Munin Logo" class="h-12 w-12 sm:h-16 sm:w-16">
-                <h1 class="text-4xl sm:text-5xl font-bold text-white tracking-tight">Munin</h1>
+                <h1 class="text-5xl sm:text-6xl font-bold text-white tracking-tight font-viking">Munin</h1>
             </div>
         </header>
 
@@ -1287,12 +1290,10 @@
             async function fetchProposalVotes(proposalId, voterType) {
                 votesModal.classList.remove('hidden');
                 modalContent.innerHTML = `
-                    <div id="cc-votes-container" class="mb-6 pb-6 border-b border-gray-600 last:border-b-0 last:pb-0 last:mb-0"></div>
                     <div id="voter-list-container">
                         <div class="flex justify-center p-8"><svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>
                     </div>
                 `;
-                const ccVotesContainer = document.getElementById('cc-votes-container');
                 const voterListContainer = document.getElementById('voter-list-container');
 
                 currentModalVoterType = voterType;
@@ -1305,38 +1306,6 @@
                     if (!res.ok) throw new Error(`API Error: ${res.status}`);
                     const allVotes = await res.json();
                     
-                    // --- Display CC Votes ---
-                    if (!currentCommittee) await fetchCommitteeData();
-                    
-                    const ccVotes = allVotes.filter(v => v.voter_role === 'ConstitutionalCommittee');
-                    if (currentCommittee && currentCommittee.members) {
-                        const colors = { Yes: 'text-green-400', No: 'text-red-400', Abstain: 'text-yellow-400' };
-                        let ccHtml = `<h4 class="text-lg font-bold text-white mb-3">Constitutional Committee Votes</h4>`;
-                        ccHtml += `<div class="space-y-2">`;
-
-                        currentCommittee.members.forEach(member => {
-                            const vote = ccVotes.find(v => v.voter_id === member.cc_cold_id_hex);
-                            const voteDisplay = vote ? vote.vote : 'Did not vote';
-                            const voteColor = vote ? colors[vote.vote] : 'text-gray-500';
-
-                            ccHtml += `
-                                <div class="grid grid-cols-2 gap-4 items-center text-sm">
-                                    <span class="font-medium">${member.name}</span>
-                                    <span class="font-bold text-right ${voteColor}">${voteDisplay}</span>
-                                </div>
-                            `;
-                        });
-
-                        ccHtml += `</div>`;
-                        ccVotesContainer.innerHTML = ccHtml;
-                    } else {
-                        ccVotesContainer.style.display = 'none';
-                    }
-                    if (ccVotes.length === 0) {
-                        ccVotesContainer.classList.remove('mb-6', 'pb-6', 'border-b', 'border-gray-600');
-                    }
-                    // --- End CC Votes ---
-
                     currentModalVotes = allVotes.filter(v => v.voter_role === voterType);
                     modalTitle.textContent = `${voterType} Votes (${currentModalVotes.length} explicit votes)`;
                     
