@@ -730,7 +730,7 @@
             }
 
             // --- Proposal Page Logic ---
-            const getThresholds = (t) => ({'TreasuryWithdrawals':{drep:0.67,spo:0.51},'HardForkInitiation':{drep:0.6,spo:0.51},'MotionOfNoConfidence':{drep:0.67,spo:0.51},'NewCommittee':{drep:0.67,spo:0.51},'UpdateToConstitution':{drep:0.75,spo:0.51},'ParameterChange':{drep:0.67,spo:0.51},'InfoAction':{drep:null,spo:null}})[t]||{drep:null,spo:null};
+            const getThresholds = (t) => ({'TreasuryWithdrawals':{drep:0.67,spo:0.51},'HardForkInitiation':{drep:0.6,spo:0.51},'MotionOfNoConfidence':{drep:0.67,spo:0.51},'NewCommittee':{drep:0.67,spo:0.51},'UpdateToConstitution':{drep:0.75,spo:0.51},'NewConstitution':{drep:0.75,spo:0.51},'ParameterChange':{drep:0.67,spo:0.51},'InfoAction':{drep:null,spo:null}})[t]||{drep:null,spo:null};
             
             function renderProposals(proposals) {
                 if (currentProposalView === 'grid') {
