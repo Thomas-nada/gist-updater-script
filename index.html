@@ -454,6 +454,7 @@
             let allHistoricalProposals = [];
             let allFetchedDReps = [];
             let allFetchedSPOs = [];
+            let specialDRepInfo = [];
             let currentCommittee = null;
             let drepsWithRationales = null; // null: not built, Set: built
             let drepsWithMetadata = null; // null: not checked, Map: checked
@@ -703,6 +704,22 @@
                 dataCache.dreps = true;
             }
 
+            async function fetchSpecialDRepData() {
+                try {
+                    updateLoadingStatus('Fetching DRep statistics...');
+                    const res = await fetch(proxyUrl(`${API_BASE}/drep_info`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ _drep_ids: ["drep_always_abstain", "drep_always_no_confidence"] })
+                    });
+                    if (!res.ok) throw new Error('Failed to fetch special DRep stats.');
+                    specialDRepInfo = await res.json();
+                } catch (err) {
+                    console.error("Failed to load special DRep data:", err);
+                    // Can proceed without this, stats will just be incomplete.
+                }
+            }
+
             async function fetchCommitteeData() {
                 updateLoadingStatus('Fetching Constitutional Committee...');
                 const res = await fetch(proxyUrl(`${API_BASE}/committee_info`));
@@ -867,6 +884,45 @@
             }
 
             // --- DRep Directory Logic ---
+            function renderDRepStats(stats) {
+                const drepPage = document.getElementById('drep-directory-page');
+                let statsContainer = document.getElementById('drep-stats-container');
+                if (!statsContainer) {
+                    statsContainer = document.createElement('div');
+                    statsContainer.id = 'drep-stats-container';
+                    const searchControls = drepPage.querySelector('.mb-8.grid');
+                    drepPage.insertBefore(statsContainer, searchControls);
+                }
+                
+                statsContainer.className = 'grid grid-cols-2 md:grid-cols-4 gap-4 mb-8';
+
+                const formatAda = (value) => {
+                    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B ADA`;
+                    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M ADA`;
+                    if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K ADA`;
+                    return `${value.toFixed(0)} ADA`;
+                };
+
+                statsContainer.innerHTML = `
+                    <div class="bg-gray-800/80 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Total DReps</p>
+                        <p class="text-2xl font-bold text-white">${stats.totalDReps.toLocaleString()}</p>
+                    </div>
+                    <div class="bg-gray-800/80 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Total Voting Power</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.totalVotingPower)}</p>
+                    </div>
+                    <div class="bg-gray-800/80 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">Abstain</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.abstainPower)}</p>
+                    </div>
+                    <div class="bg-gray-800/80 p-4 rounded-lg text-center">
+                        <p class="text-sm text-gray-400">No Confidence</p>
+                        <p class="text-2xl font-bold text-white">${formatAda(stats.noConfidencePower)}</p>
+                    </div>
+                `;
+            }
+
             function renderDReps(dreps) {
                 drepListContainer.innerHTML = '';
                 if (!dreps || dreps.length === 0) {
@@ -951,16 +1007,41 @@
             }
             
             async function fetchAndDisplayDReps() {
+                const renderStats = () => {
+                    if (!dataCache.dreps || !specialDRepInfo) return; // Don't render if data isn't ready
+
+                    const abstainInfo = specialDRepInfo.find(d => d.drep_id === 'drep_always_abstain') || { amount: 0, delegator_count: 0 };
+                    const noConfidenceInfo = specialDRepInfo.find(d => d.drep_id === 'drep_always_no_confidence') || { amount: 0, delegator_count: 0 };
+
+                    const abstainPower = parseInt(abstainInfo.amount || 0) / 1000000;
+                    const noConfidencePower = parseInt(noConfidenceInfo.amount || 0) / 1000000;
+
+                    const totalRegisteredPower = allFetchedDReps.reduce((sum, drep) => sum + (parseFloat(drep.voting_power) || 0), 0);
+                    const totalVotingPower = totalRegisteredPower + abstainPower + noConfidencePower;
+
+                    renderDRepStats({
+                        totalDReps: allFetchedDReps.length,
+                        totalVotingPower: totalVotingPower,
+                        abstainPower: abstainPower,
+                        abstainCount: parseInt(abstainInfo.delegator_count || 0),
+                        noConfidencePower: noConfidencePower,
+                        noConfidenceCount: parseInt(noConfidenceInfo.delegator_count || 0)
+                    });
+                };
+
                 if (dataCache.dreps) {
+                    renderStats();
                     applyDRepFilters();
                     return;
                 }
+                
                 showLoading(drepListContainer);
                 drepMetadataStatus.textContent = '';
                 setControlsDisabled(true);
                 try {
-                    await fetchDRepData();
-                    drepMetadataStatus.textContent = `Displaying all ${allFetchedDReps.length} DReps.`;
+                    await fetchDRepData(); // This sets dataCache.dreps = true
+                    renderStats();
+                    drepMetadataStatus.textContent = `Displaying all ${allFetchedDReps.length} registered DReps.`;
                     applyDRepFilters();
                 } catch (err) {
                     displayError(drepListContainer, err.message);
@@ -1440,6 +1521,8 @@
                 try {
                     setControlsDisabled(true);
                     let spoError = null, drepError = null, proposalError = null;
+
+                    await fetchSpecialDRepData();
 
                     try {
                         updateLoadingStatus('Fetching SPO directory...');
