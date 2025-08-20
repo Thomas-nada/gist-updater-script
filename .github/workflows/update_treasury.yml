@@ -1,0 +1,47 @@
+# Name of the GitHub Actions workflow
+name: Update Cardano Treasury Gist
+
+# Controls when the action will run
+on:
+  # Runs on a schedule. This is set to run every 6 hours.
+  # You can use https://crontab.guru/ to customize the schedule.
+  schedule:
+    - cron: '0 */6 * * *'
+    
+  # Allows you to run this workflow manually from the Actions tab
+  # in your GitHub repository, which is useful for testing.
+  workflow_dispatch:
+
+# Defines the jobs that will be executed
+jobs:
+  update-gist:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # A sequence of tasks called "steps"
+    steps:
+      # Step 1: Checks out your repository under $GITHUB_WORKSPACE,
+      # so your job can access the Python script.
+      - name: Check out repo
+        uses: actions/checkout@v3
+
+      # Step 2: Sets up a Python environment for your script to run in.
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # You can change this to your preferred Python version
+
+      # Step 3: Installs the required Python libraries.
+      # The script uses the 'requests' library to make API calls.
+      - name: Install dependencies
+        run: pip install requests
+
+      # Step 4: Runs the Python script to fetch data and update the Gist.
+      - name: Run the Cardano treasury tracker script
+        # This 'env' block makes your repository secrets available
+        # as environment variables inside the Python script.
+        env:
+          TREASURY_GIST: ${{ secrets.TREASURY_GIST }}
+          GIST_UPDATE_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
+        # IMPORTANT: Replace 'treasury.py' with the actual name of your Python script file.
+        run: python treasury.py
