@@ -10,9 +10,9 @@ KOIOS_BASE_URL = "https://api.koios.rest/api/v1"
 HEADERS = {
     "accept": "application/json"
 }
-# Gist configuration
+# Gist configuration from the original script
 GIST_ID = "7820f9ea2354d0fb8e1c160cae53adf1"
-GIST_FILENAME = "committee.json"
+GIST_FILENAME = "committee.json" # The filename within the Gist to update
 GITHUB_TOKEN = os.environ.get("GIST_UPDATE_TOKEN")
 
 def get_committee_members():
@@ -29,7 +29,6 @@ def get_committee_members():
         response.raise_for_status()  
         data = response.json()
         
-        # The API returns a list with one object, and the members are inside that object.
         if data and isinstance(data, list) and 'members' in data[0]:
             print("✅ Successfully fetched and parsed committee members.")
             return data[0]['members']
@@ -56,7 +55,7 @@ def get_votes_for_member(member_id):
     """
     endpoint = f"{KOIOS_BASE_URL}/committee_votes"
     params = {"_cc_hot_id": member_id}
-    print(f"\n🔍 Step 2: Fetching votes for member: {member_id}...")
+    print(f"🔍 Fetching votes for member: {member_id}...")
     try:
         response = requests.get(endpoint, headers=HEADERS, params=params, timeout=30)
         response.raise_for_status()
@@ -65,7 +64,7 @@ def get_votes_for_member(member_id):
         print(f"❌ Error fetching votes for {member_id}: {e}")
         return None
 
-def update_gist(all_votes_data):
+def update_gist(data_to_upload):
     """
     Updates a GitHub Gist with the provided data.
     """
@@ -79,27 +78,28 @@ def update_gist(all_votes_data):
         "Accept": "application/vnd.github.v3+json"
     }
     
+    # The content for the Gist file is the JSON-formatted string of our combined data
     payload = {
         "files": {
             GIST_FILENAME: {
-                "content": json.dumps(all_votes_data, indent=2)
+                "content": json.dumps(data_to_upload, indent=2)
             }
         }
     }
     
-    print("\n🚀 Step 3: Updating Gist...")
+    print(f"\n🚀 Step 3: Updating Gist file '{GIST_FILENAME}'...")
     try:
         response = requests.patch(gist_url, headers=headers, data=json.dumps(payload), timeout=30)
         response.raise_for_status()
         print("✅ Gist updated successfully!")
     except requests.exceptions.RequestException as e:
         print(f"❌ Error updating Gist: {e}")
-        print(f"Response content: {response.text}")
-
+        if response:
+            print(f"Response content: {response.text}")
 
 def main():
     """
-    Main function to orchestrate the process.
+    Main function to orchestrate the process and update the Gist.
     """
     members = get_committee_members()
     
@@ -108,45 +108,36 @@ def main():
         return
 
     all_votes = []
-    print("\n--- 🗳️  Processing Committee Vote Records ---")
+    print("\n--- 🗳️  Step 2: Processing All Committee Vote Records ---")
 
     for member in members:
-        status = member.get("status")
         member_id = member.get("cc_hot_id")
 
         if not member_id:
             continue
         
-        print("\n" + "=" * 80)
-        print(f"📄 Processing Member: {member_id} (Status: {status.capitalize()})")
-        print("=" * 80)
-
         votes = get_votes_for_member(member_id)
         
         if votes:
-            print(f"✅ Found {len(votes)} votes.")
-            # Add member info to each vote record for context
+            print(f"✅ Found {len(votes)} votes for {member_id}.")
             for vote in votes:
                 vote['member_id'] = member_id
-                vote['member_status'] = status
             all_votes.extend(votes)
         else:
-            print("No votes found for this member.")
+            print(f"No votes found for {member_id}.")
         
-        # A small delay to be polite to the API server
         time.sleep(0.25)
 
-    # Sort all votes globally by block time
     all_votes_sorted = sorted(all_votes, key=lambda x: x.get('block_time', 0), reverse=True)
     
-    # Save to local file
-    output_filename = 'committee.json'
-    with open(output_filename, 'w') as f:
-        json.dump(all_votes_sorted, f, indent=2)
-    print(f"\n✅ All vote data saved to {output_filename}")
+    # Create the single dictionary to hold all the data.
+    combined_data = {
+        "committee_members": members,
+        "committee_votes": all_votes_sorted
+    }
 
-    # Update the Gist
-    update_gist(all_votes_sorted)
+    # Update the Gist with the combined data
+    update_gist(combined_data)
 
 
 if __name__ == "__main__":
