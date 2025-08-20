@@ -180,7 +180,7 @@
 
     <!-- Global Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex flex-col items-center justify-center text-center p-10">
-        <img src="muninn.png" alt="Munin Logo" class="w-2/3 max-w-xs sm:max-w-sm md:max-w-md mx-auto mb-8">
+        <img src="https://i.imgur.com/4y6kE2j.png" alt="Munin Logo" class="w-2/3 max-w-xs sm:max-w-sm md:max-w-md mx-auto mb-8" onerror="this.onerror=null;this.src='https://placehold.co/400x400/0a0e1a/ffffff?text=Munin';">
         <svg class="animate-spin h-12 w-12 text-white mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -206,6 +206,7 @@
             <button id="nav-drep-directory" class="nav-button font-semibold py-2 px-6 rounded-md" aria-selected="false">DRep Directory</button>
             <button id="nav-spo-directory" class="nav-button font-semibold py-2 px-6 rounded-md" aria-selected="false">SPO Directory</button>
             <button id="nav-committee" class="nav-button font-semibold py-2 px-6 rounded-md" aria-selected="false">Committee</button>
+            <button id="nav-treasury" class="nav-button font-semibold py-2 px-6 rounded-md" aria-selected="false">Treasury</button>
             <button id="nav-about" class="nav-button font-semibold py-2 px-6 rounded-md" aria-selected="false">About</button>
         </nav>
 
@@ -291,6 +292,11 @@
             <main id="committee-container"><!-- Committee members will be injected here --></main>
         </div>
 
+        <!-- Treasury Page -->
+        <div id="treasury-page" class="hidden">
+            <main id="treasury-container"><!-- Treasury info will be injected here --></main>
+        </div>
+
         <!-- About Page -->
         <div id="about-page" class="hidden">
             <div class="bg-gray-800/80 rounded-lg p-6 md:p-8">
@@ -309,11 +315,11 @@
                             <p>In Old Norse mythology, Munin is one of the two ravens who serve the god Odin. Along with Huginn (thought), Munin (memory or mind) flies across the world to gather information and bring it back to Odin. This act of gathering knowledge to inform wise leadership is the core of governance.</p>
                             <p>This dashboard is named Munin to reflect its purpose: to fly across the Cardano blockchain, gather all relevant governance data, and present it clearly. The goal is to provide the Cardano community with the memory and insight needed to make informed decisions, ensuring the long-term health and decentralized nature of the network.</p>
                         </section>
-        
+               
                         <section id="voting-power">
                             <h2>How Voting Power is Calculated</h2>
                             <p>Voting power is a measure of influence in the governance system. It is calculated differently for Delegated Representatives (DReps) and Stake Pool Operators (SPOs).</p>
-                            
+                           
                             <h3>DRep Voting Power</h3>
                             <p>A DRep's voting power is the sum of all ADA delegated to them by other token holders. This includes:</p>
                             <ul>
@@ -328,12 +334,12 @@
                             <p>Similar to DReps, the "SPO 'Yes' (by stake)" percentage is calculated from the <strong>active voting power</strong>:</p>
                             <code>'Yes' % = (Total stake of SPOs who voted 'Yes') / (Total stake of all SPOs who voted 'Yes' or 'No')</code>
                         </section>
-        
+               
                         <section id="data-sources">
                             <h2>Data Sources</h2>
                             <p>This dashboard aggregates data from multiple reliable sources within the Cardano ecosystem:</p>
                             <ul>
-                                <li><strong>On-Chain Data:</strong> The primary source for all proposal, vote, and committee data is the <a href="https://koios.rest/" target="_blank" class="text-cyan-400 hover:underline">Koios REST API</a>, which provides direct access to indexed blockchain data.</li>
+                                <li><strong>On-Chain Data:</strong> The primary source for all proposal, vote, and committee data is the <a href="https://koios.rest/" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">Koios REST API</a>, which provides direct access to indexed blockchain data.</li>
                                 <li><strong>Directory Information:</strong> To enrich the raw on-chain data with recognizable names, some DRep and SPO information is processed by scripts that aggregate community-maintained sources, which is then made available via Koios.</li>
                             </ul>
                         </section>
@@ -341,12 +347,12 @@
                 </div>
             </div>
         </div>
-        
+       
         <!-- Footer -->
         <footer class="text-center mt-12 text-gray-500 text-sm space-y-2">
             <p>Vibe-coded by <a href="https://github.com/Thomas-nada/" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">Thomas</a>.</p>
              <p>UI inspired by a <a href="https://github.com/IntersectMBO/governance-scripts/blob/main/scripts/query-live-actions.sh" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">script</a> by <a href="https://github.com/Ryun1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">Ryun1</a>.</p>
-            <p>Last updated: <span id="last-updated"></span></p>
+            <p>Last updated: <span id="last-updated"></span><svg id="update-spinner" class="hidden animate-spin h-4 w-4 text-gray-400 inline-block ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></p>
         </footer>
     </div>
 
@@ -397,19 +403,23 @@
             const drepListContainer = document.getElementById('drep-list-container');
             const spoListContainer = document.getElementById('spo-list-container');
             const committeeContainer = document.getElementById('committee-container');
+            const treasuryContainer = document.getElementById('treasury-container');
             const lastUpdatedElement = document.getElementById('last-updated');
             const drepMetadataStatus = document.getElementById('drep-metadata-status');
-            
+            const updateSpinner = document.getElementById('update-spinner');
+           
             // Page containers and nav
             const proposalsPage = document.getElementById('proposals-page');
             const drepDirectoryPage = document.getElementById('drep-directory-page');
             const spoDirectoryPage = document.getElementById('spo-directory-page');
             const committeePage = document.getElementById('committee-page');
+            const treasuryPage = document.getElementById('treasury-page');
             const aboutPage = document.getElementById('about-page');
             const navProposals = document.getElementById('nav-proposals');
             const navDRepDirectory = document.getElementById('nav-drep-directory');
             const navSpoDirectory = document.getElementById('nav-spo-directory');
             const navCommittee = document.getElementById('nav-committee');
+            const navTreasury = document.getElementById('nav-treasury');
             const navAbout = document.getElementById('nav-about');
             const aboutNav = document.querySelector('.about-nav');
             const aboutNavLinks = document.querySelectorAll('.about-nav-link');
@@ -431,7 +441,7 @@
             // SPO page controls
             const spoSearchInput = document.getElementById('spo-search-filter');
             const spoVoteFilter = document.getElementById('spo-vote-filter');
-            
+           
             // Modals
             const votesModal = document.getElementById('votes-modal');
             const modalTitle = document.getElementById('modal-title');
@@ -456,14 +466,16 @@
             let allFetchedSPOs = [];
             let specialDRepInfo = [];
             let currentCommittee = null;
+            let currentTreasury = null;
             let drepsWithRationales = null; // null: not built, Set: built
             let drepsWithMetadata = null; // null: not checked, Map: checked
             let drepsVotingPower = null; // null: not checked, Map: checked
             let currentModalVotes = [];
             let currentModalVoterType = ''; // 'DRep', 'SPO', 'DRepHistory'
             let voterVoteHistory = [];
-            let dataCache = { proposals: false, dreps: false, spos: false, committee: false };
+            let dataCache = { proposals: false, dreps: false, spos: false, committee: false, treasury: false };
             let currentVoteChart = null;
+            let currentTreasuryChart = null;
             let currentProposalView = 'grid';
             let currentPage = 'proposals';
 
@@ -471,7 +483,8 @@
             const GOV_TOOLS_URL = "https://gov.tools";
             const SPO_DATA_URL = "https://gist.githubusercontent.com/Thomas-nada/7b742a3ca9e42281ae831b3da689c0b5/raw/fcf93ff7fae331a329f2ed69267bdf44e29f021e/governance-report.csv";
             const DREP_DATA_URL = "https://gist.githubusercontent.com/Thomas-nada/28f6ba461017efcb5ab942964776923e/raw/509ad05637b91d228b2bf0b6e26cd38d9641dd4d/drep_directory.json";
-            
+            const TREASURY_DATA_URL = "https://gist.githubusercontent.com/Thomas-nada/d2a5075ff621fd79245db001e45ddf61/raw/7247d77234209c6229b4ae5fc62a15ca39a1975c/treasury.json";
+           
             const CC_MEMBER_DETAILS = {
                 "cc_cold1z00saqaaue2pdkk7tv0e0el3zhxpl7ve259dj6y9q7plu5qwvxfy9": {
                     name: "Input Output",
@@ -504,7 +517,7 @@
             };
 
             const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true, openLinksInNewWindow: true });
-            
+           
             const typeStyles = {
                 'MotionOfNoConfidence': { text: 'Motion of No-Confidence', classes: 'bg-red-800 text-red-100 border-red-600' },
                 'NewCommittee': { text: 'New Committee', classes: 'bg-blue-800 text-blue-100 border-blue-600' },
@@ -515,7 +528,7 @@
                 'InfoAction': { text: 'Info Action', classes: 'bg-gray-700 text-gray-200 border-gray-500' },
                 'Default': { text: 'Unknown Type', classes: 'bg-gray-700 text-gray-200 border-gray-500' }
             };
-            
+           
             // --- Helper & Utility Functions ---
             const pascalToTitleCase = (s) => s ? s.replace(/([A-Z])/g, ' $1').trim() : '';
             const proxyUrl = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`;
@@ -537,18 +550,21 @@
                 drepDirectoryPage.classList.toggle('hidden', page !== 'dreps');
                 spoDirectoryPage.classList.toggle('hidden', page !== 'spos');
                 committeePage.classList.toggle('hidden', page !== 'committee');
+                treasuryPage.classList.toggle('hidden', page !== 'treasury');
                 aboutPage.classList.toggle('hidden', page !== 'about');
-                
+               
                 navProposals.setAttribute('aria-selected', page === 'proposals');
                 navDRepDirectory.setAttribute('aria-selected', page === 'dreps');
                 navSpoDirectory.setAttribute('aria-selected', page === 'spos');
                 navCommittee.setAttribute('aria-selected', page === 'committee');
+                navTreasury.setAttribute('aria-selected', page === 'treasury');
                 navAbout.setAttribute('aria-selected', page === 'about');
 
                 if (page === 'proposals') applyProposalFilters();
                 if (page === 'dreps') fetchAndDisplayDReps();
                 if (page === 'spos') fetchAndDisplaySPOs();
                 if (page === 'committee') fetchAndDisplayCommittee();
+                if (page === 'treasury') fetchAndDisplayTreasury();
                 if (page === 'about') {
                     showAboutSection('#about-dashboard'); // Set default view for about page
                 }
@@ -564,7 +580,7 @@
                     const url = `${API_BASE}/${endpoint}?limit=${limit}&offset=${offset}`;
                     const res = await fetch(proxyUrl(url));
                     if (!res.ok) throw new Error(`API Error fetching from ${endpoint}: ${res.status}`);
-                    
+                   
                     const batch = await res.json();
                     if (!Array.isArray(batch)) {
                         throw new Error(`Unexpected API response format from ${endpoint}.`);
@@ -583,7 +599,7 @@
             async function fetchProposalsData() {
                 // Step 1: Get active proposal list
                 const activeProposals = (await fetchPaginatedData('proposal_list')).filter(p => p.ratified_epoch === null && p.enacted_epoch === null && p.dropped_epoch === null && p.expired_epoch === null && p.proposal_type !== 'CommitteeNoConfidence');
-                
+               
                 // Step 2: Fetch all voting summaries and votes in parallel
                 const summaryPromises = activeProposals.map(p =>
                     fetch(proxyUrl(`${API_BASE}/proposal_voting_summary?_proposal_id=${p.proposal_id}`))
@@ -591,7 +607,7 @@
                     .then(summaryArr => ({ proposal_id: p.proposal_id, summary: summaryArr[0] }))
                     .catch(() => ({ proposal_id: p.proposal_id, summary: null }))
                 );
-                
+               
                 const votePromises = activeProposals.map(p =>
                     fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${p.proposal_id}`))
                     .then(res => res.ok ? res.json() : [])
@@ -673,15 +689,15 @@
                 });
                 dataCache.proposals = true;
             }
-            
+           
             async function fetchSPOData() {
                 const res = await fetch(proxyUrl(SPO_DATA_URL));
                 if (!res.ok) throw new Error(`Failed to fetch SPO data: ${res.status}`);
                 const csvText = await res.text();
-                
+               
                 const rows = csvText.trim().split('\n');
                 const headers = rows.shift().split(',');
-                
+               
                 allFetchedSPOs = rows.map(row => {
                     const values = row.split(',');
                     return headers.reduce((obj, header, i) => {
@@ -697,7 +713,7 @@
                 const res = await fetch(proxyUrl(DREP_DATA_URL));
                 if (!res.ok) throw new Error(`Failed to fetch DRep data: ${res.status}`);
                 const drepData = await res.json();
-            
+               
                 allFetchedDReps = drepData;
                 drepsWithMetadata = new Map(drepData.map(d => [d.drep_id, d.name || true]));
                 drepsVotingPower = new Map(drepData.map(d => [d.drep_id, d.voting_power]));
@@ -746,9 +762,17 @@
                 dataCache.committee = true;
             }
 
+            async function fetchTreasuryData() {
+                updateLoadingStatus('Fetching Treasury Data...');
+                const res = await fetch(proxyUrl(TREASURY_DATA_URL));
+                if (!res.ok) throw new Error(`API Error fetching treasury data: ${res.status}`);
+                currentTreasury = await res.json();
+                dataCache.treasury = true;
+            }
+
             // --- Proposal Page Logic ---
             const getThresholds = (t) => ({'TreasuryWithdrawals':{drep:0.67,spo:0.51},'HardForkInitiation':{drep:0.6,spo:0.51},'MotionOfNoConfidence':{drep:0.67,spo:0.51},'NewCommittee':{drep:0.67,spo:0.51},'UpdateToConstitution':{drep:0.75,spo:0.51},'NewConstitution':{drep:0.75,spo:0.51},'ParameterChange':{drep:0.67,spo:0.51},'InfoAction':{drep:null,spo:null}})[t]||{drep:null,spo:null};
-            
+           
             function renderProposals(proposals) {
                 if (currentProposalView === 'grid') {
                     renderProposalsGrid(proposals);
@@ -756,7 +780,7 @@
                     renderProposalsList(proposals);
                 }
             }
-            
+           
             function renderProposalsGrid(proposals) {
                 proposalsContainer.innerHTML = '';
                 if (proposals.length === 0) {
@@ -770,7 +794,7 @@
                     card.className = 'proposal-card rounded-xl p-6 flex flex-col';
                     const style = typeStyles[p.type] || { ...typeStyles['Default'], text: pascalToTitleCase(p.type) };
                     const thresholds = getThresholds(p.type);
-                    
+                   
                     const spoVoteHTML = p.has_spo_votes ? `
                         <div>
                             <div class="flex justify-between items-end mb-1"><span class="text-sm font-medium text-purple-400">SPO "Yes" (by stake)</span><span class="text-xl font-bold text-purple-300">${p.spo_yes_pct.toFixed(2)}%</span></div>
@@ -790,7 +814,7 @@
                             </div>
                             <h2 class="text-lg font-bold text-white">${p.title}</h2>
                             <a href="${GOV_TOOLS_URL}/governance_actions/${p.proposal_id}" target="_blank" rel="noopener noreferrer" class="block text-xs text-cyan-400 hover:underline break-all font-mono">ID: ${p.proposal_id}</a>
-                            
+                           
                             <div>
                                 <div class="flex justify-between items-end mb-1"><span class="text-sm font-medium text-green-400">DRep "Yes"</span><span class="text-xl font-bold text-green-300">${p.drep_yes_pct.toFixed(2)}%</span></div>
                                 <div class="relative w-full bg-gray-700 rounded-full h-3"><div class="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full" style="width: ${p.drep_yes_pct}%"></div>${thresholds.drep ? `<div class="threshold-line bg-yellow-300" style="left: ${thresholds.drep*100}%" title="Threshold: ${(thresholds.drep*100).toFixed(0)}%"></div>` : ''}</div>
@@ -874,7 +898,7 @@
                         const isPassing = (p.drep_yes_pct / 100) >= thresholds.drep;
                         return thresholdFilter === 'passing' ? isPassing : !isPassing;
                     });
-                
+               
                 filtered.sort((a, b) => {
                     if (sortValue === 'drep-yes-pct-asc') return a.drep_yes_pct - b.drep_yes_pct;
                     return b.drep_yes_pct - a.drep_yes_pct;
@@ -893,7 +917,7 @@
                     const searchControls = drepPage.querySelector('.mb-8.grid');
                     drepPage.insertBefore(statsContainer, searchControls);
                 }
-                
+               
                 statsContainer.className = 'grid grid-cols-2 md:grid-cols-4 gap-4 mb-8';
 
                 const formatAda = (value) => {
@@ -934,7 +958,7 @@
                 dreps.forEach(drep => {
                     const card = document.createElement('div');
                     card.className = 'bg-gray-800/80 rounded-lg p-4 flex items-center justify-between';
-                    
+                   
                     let drepNameHTML = '';
                     let hasMetadata = false;
 
@@ -945,7 +969,7 @@
                         }
                         hasMetadata = true;
                     }
-                    
+                   
                     let votingPowerHTML = '';
                     if (drepsVotingPower && drepsVotingPower.has(drep.drep_id)) {
                         const power = drepsVotingPower.get(drep.drep_id);
@@ -968,7 +992,7 @@
                 });
                 drepListContainer.appendChild(list);
             }
-            
+           
             function applyDRepFilters() {
                 const filterText = drepSearchInput.value.toLowerCase();
                 const rationaleFilter = drepRationaleFilter.checked;
@@ -1005,7 +1029,7 @@
 
                 renderDReps(filtered);
             }
-            
+           
             async function fetchAndDisplayDReps() {
                 const renderStats = () => {
                     if (!dataCache.dreps || !specialDRepInfo) return; // Don't render if data isn't ready
@@ -1034,7 +1058,7 @@
                     applyDRepFilters();
                     return;
                 }
-                
+               
                 showLoading(drepListContainer);
                 drepMetadataStatus.textContent = '';
                 setControlsDisabled(true);
@@ -1058,14 +1082,14 @@
                 label.textContent = "Building index...";
                 try {
                     const proposals = await fetchPaginatedData('proposal_list');
-                    
+                   
                     const votePromises = proposals.map(p =>
                         fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${p.proposal_id}`))
                             .then(res => res.ok ? res.json() : [])
                     );
 
                     const allVoteSets = await Promise.all(votePromises);
-                    
+                   
                     allVoteSets.forEach(voteSet => {
                         voteSet.forEach(vote => {
                             if (vote.meta_url && vote.voter_role === 'DRep') {
@@ -1092,7 +1116,7 @@
                     const searchControls = document.getElementById('spo-search-controls');
                     spoPage.insertBefore(statsContainer, searchControls);
                 }
-                
+               
                 statsContainer.className = 'grid grid-cols-2 md:grid-cols-4 gap-4 mb-8';
 
                 const formatAda = (value) => {
@@ -1133,7 +1157,7 @@
                 spos.forEach(spo => {
                     const card = document.createElement('div');
                     card.className = 'bg-gray-800/80 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between';
-                    
+                   
                     const votingPower = spo.voting_power_ada ? parseFloat(spo.voting_power_ada).toLocaleString(undefined, { maximumFractionDigits: 2 }) : 'N/A';
                     const homepageLink = spo.homepage ? `<a href="${spo.homepage}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline text-sm">${spo.homepage}</a>` : `<span class="text-gray-500 text-sm">No homepage</span>`;
 
@@ -1202,10 +1226,10 @@
                 try {
                     const totalPools = allFetchedSPOs.length;
                     const totalVotingPower = allFetchedSPOs.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
-                    
+                   
                     const abstainPools = allFetchedSPOs.filter(spo => (spo.vote || '').toLowerCase().includes('always abstain'));
                     const abstainPower = abstainPools.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
-                    
+                   
                     const noConfidencePools = allFetchedSPOs.filter(spo => (spo.vote || '').toLowerCase().includes('always no confidence'));
                     const noConfidencePower = noConfidencePools.reduce((sum, spo) => sum + (parseFloat(spo.voting_power_ada) || 0), 0);
 
@@ -1278,7 +1302,7 @@
                         </tr>
                     `;
                 });
-                
+               
                 html += `</tbody></table></div></div>`;
                 committeeContainer.innerHTML = html;
             }
@@ -1296,7 +1320,128 @@
                     displayError(committeeContainer, err.message);
                 }
             }
-            
+
+            // --- Treasury Page Logic ---
+            function renderTreasury() {
+                treasuryContainer.innerHTML = '';
+                 if (!currentTreasury) {
+                    displayError(treasuryContainer, "Treasury data not available.");
+                    return;
+                }
+
+                const { current_balance_ada, history } = currentTreasury;
+                const balance = parseFloat(current_balance_ada);
+
+                let html = `
+                    <div class="bg-gray-800/80 rounded-lg p-6 mb-8 text-center">
+                        <h2 class="text-lg font-semibold text-gray-400 mb-2">Current Treasury Balance</h2>
+                        <p class="text-4xl font-bold text-white">${balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ADA</p>
+                    </div>
+                     <div class="bg-gray-800/80 rounded-lg p-6">
+                        <h2 class="text-2xl font-bold text-white mb-4">Treasury Balance Over Time</h2>
+                        <div class="h-96">
+                            <canvas id="treasury-chart"></canvas>
+                        </div>
+                    </div>
+                `;
+                treasuryContainer.innerHTML = html;
+
+                const ctx = document.getElementById('treasury-chart').getContext('2d');
+                
+                if(currentTreasuryChart) {
+                    currentTreasuryChart.destroy();
+                }
+
+                const labels = history.map(item => `Epoch ${item.epoch}`);
+                const data = history.map(item => parseFloat(item.final_balance_ada));
+
+                currentTreasuryChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Treasury Balance (ADA)',
+                            data: data,
+                            borderColor: 'rgba(14, 165, 233, 1)', // sky-500
+                            backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(14, 165, 233, 1)',
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    color: '#9ca3af',
+                                    callback: function(value, index, values) {
+                                        if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+                                        if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+                                        if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+                                        return value;
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#9ca3af',
+                                    maxRotation: 0,
+                                    autoSkip: true,
+                                    maxTicksLimit: 10
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += `${context.parsed.y.toLocaleString()} ADA`;
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            async function fetchAndDisplayTreasury() {
+                if (dataCache.treasury) {
+                    renderTreasury();
+                    return;
+                }
+                showLoading(treasuryContainer);
+                try {
+                    await fetchTreasuryData();
+                    renderTreasury();
+                } catch (err) {
+                    displayError(treasuryContainer, err.message);
+                }
+            }
+           
             // --- Modal Logic (Shared) ---
             function renderModalVotes(container) {
                 container.innerHTML = ''; // Clear the specific container
@@ -1310,7 +1455,7 @@
                     votes = showRationale ? currentModalVotes.filter(v => v.meta_url) : currentModalVotes;
                     isHistory = false;
                 }
-                
+               
                 const colors = { Yes: 'text-green-400', No: 'text-red-400', Abstain: 'text-yellow-400' };
 
                 if (votes.length === 0) {
@@ -1330,10 +1475,10 @@
                     headerVoter = 'DRep';
                     headerExtra = 'Rationale';
                 }
-                
+               
                 const voteListContainer = document.createElement('div');
                 let html = `<div class="grid grid-cols-4 gap-4 text-left font-bold text-gray-400 pb-2 border-b border-gray-600"><span class="col-span-2">${headerVoter}</span><span class="text-center">${headerExtra}</span><span class="text-right">Vote</span></div>`;
-                
+               
                 html += votes.map(v => {
                     const id = isHistory ? v.proposal_id : v.voter_id;
                     let explorerLink = `${GOV_TOOLS_URL}/governance_actions/${id}`;
@@ -1363,7 +1508,7 @@
 
                     return `<div class="grid grid-cols-4 gap-4 items-center py-2 border-b border-gray-700 last:border-b-0"><div class="col-span-2">${voterInfoHTML}</div><div class="text-center">${extraInfoHTML}</div><span class="font-bold text-sm text-right ${colors[v.vote] || 'text-gray-400'}">${v.vote}</span></div>`;
                 }).join('');
-                
+               
                 container.innerHTML = html;
             }
 
@@ -1385,10 +1530,10 @@
                     const res = await fetch(proxyUrl(`${API_BASE}/proposal_votes?_proposal_id=${proposalId}`));
                     if (!res.ok) throw new Error(`API Error: ${res.status}`);
                     const allVotes = await res.json();
-                    
+                   
                     currentModalVotes = allVotes.filter(v => v.voter_role === voterType);
                     modalTitle.textContent = `${voterType} Votes (${currentModalVotes.length} explicit votes)`;
-                    
+                   
                     renderModalVotes(voterListContainer);
 
                 } catch (err) {
@@ -1420,7 +1565,7 @@
                     rationaleModal.classList.remove('hidden');
                     rationaleModalContent.innerHTML = `<div class="flex justify-center items-center p-8"><svg class="animate-spin h-6 w-6 text-white"></svg><p class="ml-4">Fetching rationale...</p></div>`;
                 }
-                
+               
                 try {
                     let url;
                     if (metaUrl.startsWith('ipfs://')) {
@@ -1475,11 +1620,11 @@
                     if (!dataArr || dataArr.length === 0 || !dataArr[0].meta_json) {
                         throw new Error("No metadata found for this DRep or metadata is empty.");
                     }
-                    
+                   
                     const metadata = dataArr[0].meta_json;
                     const { givenName, bio, introduction, motivation, qualifications, contact, website, socialMedia } = metadata.body || {};
                     const drepName = givenName || metadata.drepName; // Fallback for different structures
-                    
+                   
                     let html = '<div class="space-y-6 ai-summary-content">';
 
                     if (drepName) {
@@ -1504,7 +1649,7 @@
                             html += `<div><h4 class="text-lg font-bold text-cyan-300 mb-2">${key}</h4>${markdownConverter.makeHtml(value)}</div>`;
                         }
                     }
-                    
+                   
                     html += `<div><h4 class="text-lg font-bold text-cyan-300 mt-8 mb-2">Full Metadata (JSON)</h4><pre class="bg-gray-900 p-4 rounded-lg text-sm text-gray-300 overflow-x-auto"><code>${JSON.stringify(metadata, null, 2)}</code></pre></div>`;
 
                     html += '</div>';
@@ -1513,6 +1658,54 @@
 
                 } catch (err) {
                     drepMetadataModalContent.innerHTML = `<p class="text-red-400 text-center">${err.message}</p>`;
+                }
+            }
+
+            // --- Background Update Task ---
+            async function refreshData() {
+                console.log(`[${new Date().toLocaleTimeString()}] Starting background data refresh...`);
+                updateSpinner.classList.remove('hidden');
+                setControlsDisabled(true);
+
+                try {
+                    // Fetch data that doesn't have dependencies first, in parallel
+                    await Promise.all([
+                        fetchSPOData(),
+                        fetchDRepData(),
+                        fetchSpecialDRepData(),
+                        fetchCommitteeData(),
+                        fetchTreasuryData()
+                    ]);
+
+                    // Now fetch proposals, which depends on SPO data
+                    await fetchProposalsData();
+
+                    lastUpdatedElement.textContent = new Date().toLocaleString();
+                    console.log(`[${new Date().toLocaleTimeString()}] Data refresh complete. Updating view for page: ${currentPage}`);
+
+                    // Re-render the current page with the new data
+                    switch (currentPage) {
+                        case 'proposals':
+                            applyProposalFilters();
+                            break;
+                        case 'dreps':
+                            fetchAndDisplayDReps();
+                            break;
+                        case 'spos':
+                            fetchAndDisplaySPOs();
+                            break;
+                        case 'committee':
+                            renderCommittee();
+                            break;
+                        case 'treasury':
+                            renderTreasury();
+                            break;
+                    }
+                } catch (err) {
+                    console.error("Background data refresh failed:", err);
+                } finally {
+                    updateSpinner.classList.add('hidden');
+                    setControlsDisabled(false);
                 }
             }
 
@@ -1553,13 +1746,13 @@
                         navProposals.disabled = true;
                         navProposals.title = "Proposal data failed to load.";
                     }
-                    
+                   
                     updateLoadingStatus('Finalizing...');
                     lastUpdatedElement.textContent = new Date().toLocaleString();
                     loadingOverlay.style.display = 'none';
                     mainContent.classList.remove('opacity-0');
                     setControlsDisabled(false);
-                    
+                   
                     if (!proposalError) {
                         showPage('proposals');
                     } else if (!drepError) {
@@ -1573,7 +1766,7 @@
                     if (spoError) displayError(spoListContainer, `Could not load SPO data: ${spoError}. This section is unavailable.`);
                     if (drepError) displayError(drepListContainer, `Could not load DRep data: ${drepError}. This section is unavailable.`);
                     if (proposalError) displayError(proposalsContainer, `Could not load Proposal data: ${proposalError}. This section is unavailable.`);
-                    
+                   
                 } catch (err) {
                     loadingStatus.innerHTML = `<span class="text-red-400">A critical error occurred during initialization: ${err.message}</span>`;
                 }
@@ -1603,12 +1796,13 @@
             navDRepDirectory.addEventListener('click', () => showPage('dreps'));
             navSpoDirectory.addEventListener('click', () => showPage('spos'));
             navCommittee.addEventListener('click', () => showPage('committee'));
+            navTreasury.addEventListener('click', () => showPage('treasury'));
             navAbout.addEventListener('click', () => showPage('about'));
-            
+           
             // Proposal page listeners
             [searchInput, sortSelect, typeFilterSelect, thresholdFilterSelect].forEach(el => el.addEventListener('change', applyProposalFilters));
             searchInput.addEventListener('input', applyProposalFilters);
-            
+           
             viewGridBtn.addEventListener('click', () => {
                 currentProposalView = 'grid';
                 viewGridBtn.setAttribute('aria-selected', 'true');
@@ -1644,7 +1838,7 @@
                 if (viewBtn) fetchDRepVotes(viewBtn.dataset.drepId);
                 if (metadataBtn && !metadataBtn.disabled) fetchAndShowDRepMetadata(metadataBtn.dataset.drepId);
             });
-            
+           
             // SPO page listener
             spoSearchInput.addEventListener('input', applySPOFilters);
             spoVoteFilter.addEventListener('change', applySPOFilters);
@@ -1680,6 +1874,9 @@
 
             // --- Initial Load ---
             initializeApp();
+            
+            // --- Background Update Task ---
+            setInterval(refreshData, 120000); // 120,000 ms = 2 minutes
         });
     </script>
 </body>
