@@ -52,12 +52,12 @@ def create_gist(token, filename, content):
 
 def main():
     """Main function to run the report and update the Gist."""
-    token = os.getenv("GH_TOKEN")
-    # Use the new secret name 'COMMITTEE_GIST'
+    # Use the new secret name 'GIST_UPDATE_TOKEN'
+    token = os.getenv("GIST_UPDATE_TOKEN")
     gist_id = os.getenv("COMMITTEE_GIST")
 
     if not token:
-        print("❌ Error: GH_TOKEN environment variable not set.")
+        print("❌ Error: GIST_UPDATE_TOKEN environment variable not set.")
         return
 
     print("🏃 Running committee_votes.py to get the latest data...")
