@@ -12,17 +12,6 @@ def lovelace_to_ada(lovelace):
     """Converts a Lovelace value to ADA."""
     return Decimal(lovelace) / Decimal(1_000_000)
 
-def get_latest_epoch():
-    """Fetches the latest epoch number from the Koios API."""
-    try:
-        tip_url = "https://api.koios.rest/api/v1/tip"
-        response = requests.get(tip_url, timeout=10)
-        response.raise_for_status()
-        return response.json()[0]['epoch_no']
-    except Exception as e:
-        print(f"Error fetching latest epoch: {e}")
-        return None
-
 # --- Data Gathering Functions ---
 
 def get_current_treasury_balance():
@@ -41,35 +30,58 @@ def get_current_treasury_balance():
         return None
 
 
-def get_main_treasury_history(num_epochs=500):
+def get_main_treasury_history():
     """
-    Tracks the movements of the main Cardano treasury and returns the data as a list.
+    Tracks the movements of the main Cardano treasury for all epochs since the start (epoch 208).
     """
-    latest_epoch = get_latest_epoch()
-    if not latest_epoch: return []
-
-    start_epoch = latest_epoch - num_epochs
+    print(f"\n📜 Fetching full treasury history since Shelley era (Epoch 208)...")
+    
+    # The Shelley era, which introduced the treasury, started at epoch 208.
+    start_epoch = 208
     history_data = []
+    all_epoch_totals = []
+    offset = 0
 
     try:
-        totals_url = f"https://api.koios.rest/api/v1/totals?epoch_no=gte.{start_epoch}&order=epoch_no.asc"
-        totals_response = requests.get(totals_url, timeout=30)
-        totals_response.raise_for_status()
-        totals_data = {item['epoch_no']: item for item in totals_response.json()}
+        # The Koios API is paginated (1000 results per page). We need to loop to get all pages.
+        while True:
+            print(f"   Fetching page starting at offset {offset}...", end='\r')
+            # We fetch all totals starting from epoch 208, ordered chronologically.
+            totals_url = f"https://api.koios.rest/api/v1/totals?epoch_no=gte.{start_epoch}&order=epoch_no.asc&offset={offset}"
+            totals_response = requests.get(totals_url, timeout=30)
+            totals_response.raise_for_status()
+            page_data = totals_response.json()
+            
+            if not page_data:
+                # If a page returns no data, we've reached the end.
+                break
+            
+            all_epoch_totals.extend(page_data)
+            
+            if len(page_data) < 1000:
+                # If we get less than 1000 results, it's the last page.
+                break
+                
+            offset += 1000
 
-        for epoch in range(start_epoch + 1, latest_epoch + 1):
-            if epoch not in totals_data or (epoch - 1) not in totals_data:
-                continue
+        print("\nAll epoch data fetched. Processing history...")
+        totals_data = {item['epoch_no']: item for item in all_epoch_totals}
 
-            treasury_current = Decimal(totals_data[epoch]['treasury'])
-            treasury_previous = Decimal(totals_data[epoch - 1]['treasury'])
+        # Iterate through the epochs we have data for to calculate changes.
+        sorted_epochs = sorted(totals_data.keys())
+        for i in range(1, len(sorted_epochs)):
+            current_epoch_num = sorted_epochs[i]
+            previous_epoch_num = sorted_epochs[i-1]
+
+            treasury_current = Decimal(totals_data[current_epoch_num]['treasury'])
+            treasury_previous = Decimal(totals_data[previous_epoch_num]['treasury'])
             net_change = treasury_current - treasury_previous
 
             inflow_ada = lovelace_to_ada(max(Decimal(0), net_change))
             outflow_ada = lovelace_to_ada(-min(Decimal(0), net_change))
             
             history_data.append({
-                "epoch": epoch,
+                "epoch": current_epoch_num,
                 "inflow_ada": f"{inflow_ada:.2f}",
                 "outflow_ada": f"{outflow_ada:.2f}",
                 "net_change_ada": f"{lovelace_to_ada(net_change):.2f}",
@@ -119,7 +131,8 @@ if __name__ == "__main__":
         # 2. Fetch the Cardano data
         print("--- Running Cardano Treasury Tracker ---")
         current_balance = get_current_treasury_balance()
-        history = get_main_treasury_history(num_epochs=500)
+        # The function now fetches all history by default
+        history = get_main_treasury_history()
         
         if current_balance is not None and history:
             # 3. Prepare the JSON output
